@@ -4,7 +4,7 @@ Definitions For the process monitor file formats
 
 from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, CString, Enum, Array, Const, Switch, \
     Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer
-from procmon_parser.definitions import Column, RuleAction, RuleRelation, Rule, Font
+from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
 
 __all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record',
            'ProcmonConfiguration']
