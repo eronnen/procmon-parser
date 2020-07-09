@@ -3,6 +3,7 @@ Python types that process monitor configuration uses
 """
 
 import enum
+from six import string_types
 
 __all__ = ['RuleAction', 'RuleRelation', 'Column', 'Rule', 'Font']
 
@@ -60,12 +61,12 @@ class Rule(object):
     """
 
     def __init__(self, column=Column.ARCHITECTURE, relation=RuleRelation.IS, value="64-bit", action=RuleAction.INCLUDE):
-        self.column = Column[column.upper()] if isinstance(column, str) else Column(column)
-        self.relation = RuleRelation[relation.upper()] if isinstance(relation, str) else RuleRelation(relation)
-        if not isinstance(value, str):
+        self.column = Column[column.upper()] if isinstance(column, string_types) else Column(column)
+        self.relation = RuleRelation[relation.upper()] if isinstance(relation, string_types) else RuleRelation(relation)
+        if not isinstance(value, string_types):
             raise TypeError("Filter value must be a string")
         self.value = value
-        self.action = RuleAction[action.upper()] if isinstance(action, str) else RuleAction(action)
+        self.action = RuleAction[action.upper()] if isinstance(action, string_types) else RuleAction(action)
 
     def __eq__(self, other):
         if type(other) is type(self):

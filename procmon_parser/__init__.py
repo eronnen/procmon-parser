@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from io import BytesIO
 from construct import StreamError
 from procmon_parser.configuration_format import Record
@@ -10,17 +11,17 @@ __all__ = [
 
 
 def load_configuration(stream):
-    """Deserialize ``stream`` (a ``.write()``-supporting file-like object) which contains PMC formatted data,
+    """Deserialize ``stream`` (a ``.read()``-supporting file-like object) which contains PMC formatted data,
     to a Python dictionary with the parsed configuration records.
     """
-    records = {}
+    records = []
     while True:
         try:
             name, data = Record.parse_stream(stream)
-            records[name] = data
+            records.append((name, data))
         except StreamError:
             break
-    return records
+    return OrderedDict(records)
 
 
 def loads_configuration(data):
@@ -33,10 +34,11 @@ def loads_configuration(data):
 
 def dump_configuration(records, stream):
     """Serialize ``records``, a dictionary of procmon configuration records, to ``stream`` (a
-    ``.write()``-supporting file-like object), in the format of PMC.
+    ``.write()``-supporting file-like object that returns the length written (for python2 use the io module)),
+    in the format of PMC.
     """
-    for record in records.items():
-        Record.build_stream(record, stream)
+    for name, data in records.items():
+        Record.build_stream((name, data), stream)
 
 
 def dumps_configuration(records):
