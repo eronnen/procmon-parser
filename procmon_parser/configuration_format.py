@@ -122,7 +122,7 @@ Struct that contains a single rule which can be applied on the process monitor e
 
 class RuleStructAdapter(Adapter):
     def _decode(self, obj, context, path):
-        return Rule(column=obj["column"], relation=obj["relation"], action=obj["action"], value=obj["value"])
+        return Rule(column=obj["column"], relation=obj["relation"], value=obj["value"], action=obj["action"])
 
     def _encode(self, obj, context, path):
         return {"column": obj.column, "relation": obj.relation, "action": obj.action, "value": obj.value}

@@ -59,18 +59,20 @@ class Rule(object):
     A rule that can be used to filter procmon events.
     """
 
-    def __init__(self, column=Column.ARCHITECTURE, relation=RuleRelation.IS, action=RuleAction.INCLUDE, value="64-bit"):
-        self.column = column
-        self.relation = relation
-        self.action = action
+    def __init__(self, column=Column.ARCHITECTURE, relation=RuleRelation.IS, value="64-bit", action=RuleAction.INCLUDE):
+        self.column = Column[column.upper()] if isinstance(column, str) else Column(column)
+        self.relation = RuleRelation[relation.upper()] if isinstance(relation, str) else RuleRelation(relation)
+        if not isinstance(value, str):
+            raise TypeError("Filter value must be a string")
         self.value = value
+        self.action = RuleAction[action.upper()] if isinstance(action, str) else RuleAction(action)
 
     def __str__(self):
         return "If {} {} \"{}\", then {}".format(self.column.name.capitalize(), self.relation.name.lower(), self.value,
                                                  self.action.name.capitalize())
 
     def __repr__(self):
-        return "Rule({}, {}, {}, \"{}\")".format(str(self.column), str(self.relation), str(self.action), self.value)
+        return "Rule({}, {}, \"{}\", {})".format(str(self.column), str(self.relation), self.value, str(self.action))
 
 
 class Font(object):

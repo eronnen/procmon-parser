@@ -1,9 +1,11 @@
 from io import BytesIO
 from construct import StreamError
 from procmon_parser.configuration_format import Record
+from procmon_parser.configuration import *
 
 __all__ = [
-    'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration'
+    'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
+    'RuleAction', 'RuleRelation', 'Column', 'Rule', 'Font'
 ]
 
 
