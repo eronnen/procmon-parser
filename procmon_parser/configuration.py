@@ -67,6 +67,14 @@ class Rule(object):
         self.value = value
         self.action = RuleAction[action.upper()] if isinstance(action, str) else RuleAction(action)
 
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         return "If {} {} \"{}\", then {}".format(self.column.name.capitalize(), self.relation.name.lower(), self.value,
                                                  self.action.name.capitalize())

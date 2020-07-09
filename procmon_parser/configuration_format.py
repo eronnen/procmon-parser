@@ -3,7 +3,8 @@ Definitions For the process monitor configuration file formats
 """
 
 from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, CString, Enum, Array, Const, Switch, \
-    Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer, Check
+    Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer, Check, Byte, \
+    GreedyBytes
 from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
 
 __all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record']
@@ -53,6 +54,12 @@ def FixedArray(size_func, subcon):
     """
     return ListAdapter(
         IfThenElse(lambda this: this._parsing, FixedSized(size_func, GreedyRange(subcon)), GreedyRange(subcon)))
+
+
+def FixedBytes(size_func):
+    """At parse time parses a fixed sized byte array, and at build time builds the byte array with its given size.
+    """
+    return IfThenElse(lambda this: this._parsing, Bytes(size_func), GreedyBytes)
 
 
 # ===============================================================================
@@ -183,7 +190,7 @@ Struct that contains generic procmon configuration option.
         "SymbolPath": FixedUTF16CString(lambda this: this.data_size, "data"),
         "FilterRules": RulesStruct,
         "HighlightRules": RulesStruct
-    }),
+    }, FixedBytes(lambda this: this.data_size)),
     "after_data_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
 
 
