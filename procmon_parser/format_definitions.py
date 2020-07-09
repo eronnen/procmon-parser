@@ -2,10 +2,17 @@
 Definitions For the process monitor file formats
 """
 
-from construct import Struct, Int8ul, Int32ul, Bytes, PaddedString, Enum, Array, Const, Adapter
+from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, CString, Enum, Array, Const, Switch, \
+    Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer
 from procmon_parser.definitions import Column, RuleAction, RuleRelation, Rule, Font
 
-__all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record']
+__all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record',
+           'ProcmonConfiguration']
+
+
+# ===============================================================================
+# Classes for construct
+# ===============================================================================
 
 class OriginalEnumAdapter(Enum):
     def __init__(self, subcon, enum_class, *arg, **kwargs):
@@ -20,6 +27,27 @@ class ListAdapter(Adapter):
     def _decode(self, obj, context, path):
         return list(obj)
 
+    def _encode(self, obj, context, path):
+        return obj
+
+
+def FixedUTF16String(size_func):
+    return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"), GreedyString("UTF_16_le"))
+
+
+def FixedUTF16CString(size_func, ctx_str_name):
+    return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"),
+                      If(lambda ctx: ctx[ctx_str_name], CString("UTF_16_le")))
+
+
+def FixedArray(size_func, subcon):
+    return ListAdapter(
+        IfThenElse(lambda this: this._parsing, FixedSized(size_func, GreedyRange(subcon)), GreedyRange(subcon)))
+
+
+# ===============================================================================
+# Procmon configuration file definitions
+# ===============================================================================
 
 RuleActionType = OriginalEnumAdapter(Int8ul, RuleAction)
 RuleRelationType = OriginalEnumAdapter(Int32ul, RuleRelation)
@@ -62,13 +90,20 @@ class FontStructAdapter(Adapter):
 FontStruct = FontStructAdapter(LOGFONTW)
 
 RawRuleStruct = Struct(
-    "reserved1" / Bytes(3),
+    "reserved1" / Default(Bytes(3), 0),
     "column" / ColumnType,
     "relation" / RuleRelationType,
     "action" / RuleActionType,
-    "value_length" / Int32ul,
-    "value" / PaddedString(lambda this: this.value_length, "UTF_16_le"),
-    "reserved2" / Bytes(5),
+    "value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "value_length" / Default(Int32ul, 0),
+    "before_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "value" / FixedUTF16CString(lambda this: this.value_length, "value"),
+    "after_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "reserved2" / Default(Bytes(5), 0),
+
+    # To calculate value string in build time
+    "value_length" / Pointer(lambda this: this.value_offset,
+                             Default(Int32ul, lambda this: this.after_value_offset - this.before_value_offset))
 )
 
 
@@ -77,15 +112,16 @@ class RuleStructAdapter(Adapter):
         return Rule(column=obj["column"], relation=obj["relation"], action=obj["action"], value=obj["value"])
 
     def _encode(self, obj, context, path):
-        return {"reserved1": 0}
+        return {"column": obj.column, "relation": obj.relation, "action": obj.action, "value": obj.value}
 
 
 RuleStruct = RuleStructAdapter(RawRuleStruct)
 
 RawRulesStruct = Struct(
-    "unknown" / Const(1, Int8ul),
-    "rules_count" / Int8ul,
+    "reserved1" / Const(1, Int8ul),
+    "rules_count" / Rebuild(Int8ul, lambda this: len(this.rules)),
     "rules" / Array(lambda this: this.rules_count, RuleStruct),
+    "reserved1" / Default(Bytes(3), 0),
 )
 
 
@@ -94,18 +130,60 @@ class RulesStructAdapter(Adapter):
         return list(obj["rules"])
 
     def _encode(self, obj, context, path):
-        return {"unknown": 1, "rules_count": len(obj), "rules": obj}
+        return {"rules": obj}
 
 
 RulesStruct = RulesStructAdapter(RawRulesStruct)
-
 RawRecordStruct = Struct(
-    "record_size" / Int32ul,  # TODO: record_size == record_header_and_name_size + data_size
-    "record_header_size" / Int32ul,
-    "record_header_and_name_size" / Int32ul,
-    "data_size" / Int32ul,
-    "name" / PaddedString(lambda this: this.record_header_and_name_size - this.record_header_size, "UTF_16_le"),
-    "data" / Bytes(lambda this: this.data_size),
+    "record_size_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "record_size" / Default(Int32ul, 0x10),  # TODO: record_size == record_header_and_name_size + data_size
+    "record_header_size" / Const(0x10, Int32ul),
+    "record_header_and_name_size_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "record_header_and_name_size" / Default(Int32ul, 0x10),
+    "data_size_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "data_size" / Default(Int32ul, 0),
+    "before_name_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "name" / FixedUTF16CString(lambda this: this.record_header_and_name_size - this.record_header_size, "name"),
+    "after_name_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+    "data" / Switch(lambda this: this.name, {
+        "Columns": FixedArray(lambda this: this.data_size, Int16ul),
+        "ColumnCount": Int32ul,
+        "ColumnMap": FixedArray(lambda this: this.data_size, ColumnType),
+        "DbgHelpPath": FixedUTF16String(lambda this: this.data_size),
+        "Logfile": FixedUTF16String(lambda this: this.data_size),
+        "HighlightFG": Int32ul,
+        "HighlightBG": Int32ul,
+        "LogFont": FontStruct,
+        "BoookmarkFont": FontStruct,  # they have typo in "BoookmarkFont" lol
+        "AdvancedMode": Int32ul,
+        "Autoscroll": Int32ul,
+        "HistoryDepth": Int32ul,
+        "Profiling": Int32ul,
+        "DestructiveFilter": Int32ul,
+        "AlwaysOnTop": Int32ul,
+        "ResolveAddresses": Int32ul,
+        "SourcePath": FixedUTF16CString(lambda this: this.data_size, "data"),
+        "SymbolPath": FixedUTF16CString(lambda this: this.data_size, "data"),
+        "FilterRules": RulesStruct,
+        "HighlightRules": RulesStruct
+    }),
+    "after_data_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
+
+
+    # For computing sizes only after we built the known types
+    "record_header_and_name_size" / Pointer(
+        lambda this: this.record_header_and_name_size_offset,
+        Default(Int32ul, lambda this: this.record_header_size + this.after_name_offset - this.before_name_offset)
+    ),
+
+    "data_size" / Pointer(
+        lambda this: this.data_size_offset,
+        Default(Int32ul, lambda this: this.after_data_offset - this.after_name_offset)),
+
+    "record_size" / Pointer(
+        lambda this: this.record_size_offset,
+        Default(Int32ul, lambda this: this.record_header_and_name_size + this.data_size)
+    ),
 )
 
 
@@ -114,12 +192,19 @@ class RecordStructAdapter(Adapter):
         return obj["name"], obj["data"]
 
     def _encode(self, obj, context, path):
-        header_size = 0x10
-        header_and_name_size = header_size + len(obj[0])
-
-        return {"record_size": header_and_name_size + len(obj[1]), "record_header_size": header_size,
-                "record_header_and_name_size": header_and_name_size, "data_size": len(obj[1]), "name": obj[0],
-                "data": obj[1]}
+        return {"name": obj[0], "data": obj[1]}
 
 
 Record = RecordStructAdapter(RawRecordStruct)
+ProcmonConfigurationStruct = GreedyRange(Record)
+
+
+class ProcmonConfigurationStructAdapter(Adapter):
+    def _decode(self, obj, context, path):
+        return dict(obj)
+
+    def _encode(self, obj, context, path):
+        return [(k, v) for k, v in obj.items()]
+
+
+ProcmonConfiguration = ProcmonConfigurationStructAdapter(ProcmonConfigurationStruct)

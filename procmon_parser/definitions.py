@@ -69,8 +69,7 @@ class Rule(object):
                                                  self.action.name.capitalize())
 
     def __repr__(self):
-        return "Rule(column={}, relation={}, action={}, value={})".format(str(self.column), str(self.relation),
-                                                                          str(self.action), self.value)
+        return "Rule({}, {}, {}, \"{}\")".format(str(self.column), str(self.relation), str(self.action), self.value)
 
 
 class Font(object):
