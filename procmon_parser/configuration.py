@@ -1,3 +1,7 @@
+"""
+Python types that process monitor configuration uses
+"""
+
 import enum
 
 __all__ = ['RuleAction', 'RuleRelation', 'Column', 'Rule', 'Font']

@@ -1,20 +1,20 @@
 """
-Definitions For the process monitor file formats
+Definitions For the process monitor configuration file formats
 """
 
 from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, CString, Enum, Array, Const, Switch, \
-    Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer
+    Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer, Check
 from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
 
-__all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record',
-           'ProcmonConfiguration']
+__all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record']
 
 
 # ===============================================================================
 # Classes for construct
 # ===============================================================================
-
 class OriginalEnumAdapter(Enum):
+    """Used to decode the original enum type instead of EnumIntegerString
+    """
     def __init__(self, subcon, enum_class, *arg, **kwargs):
         super(OriginalEnumAdapter, self).__init__(subcon, enum_class, *arg, **kwargs)
         self.original_enum = enum_class
@@ -24,6 +24,8 @@ class OriginalEnumAdapter(Enum):
 
 
 class ListAdapter(Adapter):
+    """Used to decode regular python list instead of ListContainer
+    """
     def _decode(self, obj, context, path):
         return list(obj)
 
@@ -32,15 +34,23 @@ class ListAdapter(Adapter):
 
 
 def FixedUTF16String(size_func):
+    """At parse time parses a UTF16 string with a known size, and at build time builds the string with its given size.
+    """
     return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"), GreedyString("UTF_16_le"))
 
 
 def FixedUTF16CString(size_func, ctx_str_name):
+    """At parse time parses a UTF16 string terminated with null byte with a known size, and at build time builds
+    the string with its given size.
+    If the given string is empty at build time, then build nothing instead of a single null character.
+    """
     return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"),
                       If(lambda ctx: ctx[ctx_str_name], CString("UTF_16_le")))
 
 
 def FixedArray(size_func, subcon):
+    """At parse time parses a fixed sized array, and at build time builds the array with its given size.
+    """
     return ListAdapter(
         IfThenElse(lambda this: this._parsing, FixedSized(size_func, GreedyRange(subcon)), GreedyRange(subcon)))
 
@@ -48,12 +58,13 @@ def FixedArray(size_func, subcon):
 # ===============================================================================
 # Procmon configuration file definitions
 # ===============================================================================
-
 RuleActionType = OriginalEnumAdapter(Int8ul, RuleAction)
 RuleRelationType = OriginalEnumAdapter(Int32ul, RuleRelation)
 ColumnType = OriginalEnumAdapter(Int32ul, Column)
 
-LOGFONTW = Struct(
+LOGFONTW = """
+see https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logfontw for documentation
+""" * Struct(
     "lfHeight" / Int32ul,
     "lfWidth" / Int32ul,
     "lfEscapement" / Int32ul,
@@ -89,8 +100,10 @@ class FontStructAdapter(Adapter):
 
 FontStruct = FontStructAdapter(LOGFONTW)
 
-RawRuleStruct = Struct(
-    "reserved1" / Default(Bytes(3), 0),
+RawRuleStruct = """
+Struct that contains a single rule which can be applied on the process monitor events.
+""" * Struct(
+    "reserved1" / Default(Bytes(3), 0) * "!!Unknown field!!",
     "column" / ColumnType,
     "relation" / RuleRelationType,
     "action" / RuleActionType,
@@ -99,7 +112,7 @@ RawRuleStruct = Struct(
     "before_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
     "value" / FixedUTF16CString(lambda this: this.value_length, "value"),
     "after_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
-    "reserved2" / Default(Bytes(5), 0),
+    "reserved2" / Default(Bytes(5), 0) * "!!Unknown field!!",
 
     # To calculate value string in build time
     "value_length" / Pointer(lambda this: this.value_offset,
@@ -117,11 +130,13 @@ class RuleStructAdapter(Adapter):
 
 RuleStruct = RuleStructAdapter(RawRuleStruct)
 
-RawRulesStruct = Struct(
-    "reserved1" / Const(1, Int8ul),
+RawRulesStruct = """
+Struct that contains a list of procmon rules.
+""" * Struct(
+    "reserved1" / Const(1, Int8ul) * "!!Unknown field!!",
     "rules_count" / Rebuild(Int8ul, lambda this: len(this.rules)),
     "rules" / Array(lambda this: this.rules_count, RuleStruct),
-    "reserved1" / Default(Bytes(3), 0),
+    "reserved1" / Default(Bytes(3), 0) * "!!Unknown field!!",
 )
 
 
@@ -134,9 +149,11 @@ class RulesStructAdapter(Adapter):
 
 
 RulesStruct = RulesStructAdapter(RawRulesStruct)
-RawRecordStruct = Struct(
+RawRecordStruct = """
+Struct that contains generic procmon configuration option.
+""" * Struct(
     "record_size_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
-    "record_size" / Default(Int32ul, 0x10),  # TODO: record_size == record_header_and_name_size + data_size
+    "record_size" / Default(Int32ul, 0x10),
     "record_header_size" / Const(0x10, Int32ul),
     "record_header_and_name_size_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
     "record_header_and_name_size" / Default(Int32ul, 0x10),
@@ -178,12 +195,15 @@ RawRecordStruct = Struct(
 
     "data_size" / Pointer(
         lambda this: this.data_size_offset,
-        Default(Int32ul, lambda this: this.after_data_offset - this.after_name_offset)),
+        Default(Int32ul, lambda this: this.after_data_offset - this.after_name_offset)
+    ),
 
     "record_size" / Pointer(
         lambda this: this.record_size_offset,
         Default(Int32ul, lambda this: this.record_header_and_name_size + this.data_size)
     ),
+
+    Check(lambda this: this.record_size == this.record_header_and_name_size + this.data_size)
 )
 
 
@@ -196,15 +216,3 @@ class RecordStructAdapter(Adapter):
 
 
 Record = RecordStructAdapter(RawRecordStruct)
-ProcmonConfigurationStruct = GreedyRange(Record)
-
-
-class ProcmonConfigurationStructAdapter(Adapter):
-    def _decode(self, obj, context, path):
-        return dict(obj)
-
-    def _encode(self, obj, context, path):
-        return [(k, v) for k, v in obj.items()]
-
-
-ProcmonConfiguration = ProcmonConfigurationStructAdapter(ProcmonConfigurationStruct)
