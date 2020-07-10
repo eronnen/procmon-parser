@@ -79,6 +79,21 @@ and a value. The known record options are:
 
 For the raw binary format of **PMC** files you can refer to [configuration_format.py](procmon_parser/configuration_format.py).
 
+## Process Monitor Logs file (PML)
+
+### Usage
+
+### File Format
+
+For the raw binary format of **PML** files you can refer to [logs_format.py](procmon_parser/logs_format.py).
+
+### Unsupported features
+
+There are some features of **PML** files that are not supported yet:
+- [ ] Same logs over separated PML files.
+- [ ] Detail column is not fully supported for all event types.
+
+Pull requests to support these missing features are welcome :) :)
 
 ## Contributing
 

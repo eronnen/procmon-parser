@@ -1,5 +1,5 @@
 """
-Python types that process monitor configuration uses
+Python types that procmon configuration uses
 """
 
 import enum
@@ -56,8 +56,7 @@ class Column(enum.IntEnum):
 
 
 class Rule(object):
-    """
-    A rule that can be used to filter procmon events.
+    """A rule that can be used to filter procmon events.
     """
 
     def __init__(self, column=Column.ARCHITECTURE, relation=RuleRelation.IS, value="64-bit", action=RuleAction.INCLUDE):
@@ -85,8 +84,7 @@ class Rule(object):
 
 
 class Font(object):
-    """
-    A font attributes for procmon, like in LOGFONTW structure
+    """A font attributes for procmon, like in LOGFONTW structure
     see https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logfontw for documentation
     """
 

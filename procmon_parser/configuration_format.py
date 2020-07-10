@@ -1,65 +1,14 @@
 """
-Definitions For the process monitor configuration file formats
+Definitions For the process monitor configuration file formats.
 """
 
-from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, CString, Enum, Array, Const, Switch, \
-    Tell, Adapter, FixedSized, GreedyRange, Rebuild, GreedyString, Default, If, IfThenElse, Pointer, Check, Byte, \
-    GreedyBytes
+from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, Array, Const, Switch, Tell, Adapter, \
+    Rebuild, Default, Pointer, Check
+from procmon_parser.construct_helper import OriginalEnumAdapter, FixedUTF16String, FixedUTF16CString, FixedArray, \
+    FixedBytes
 from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
 
 __all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record']
-
-
-# ===============================================================================
-# Classes for construct
-# ===============================================================================
-class OriginalEnumAdapter(Enum):
-    """Used to decode the original enum type instead of EnumIntegerString
-    """
-    def __init__(self, subcon, enum_class, *arg, **kwargs):
-        super(OriginalEnumAdapter, self).__init__(subcon, enum_class, *arg, **kwargs)
-        self.original_enum = enum_class
-
-    def _decode(self, obj, context, path):
-        return self.original_enum[super(OriginalEnumAdapter, self)._decode(obj, context, path)]
-
-
-class ListAdapter(Adapter):
-    """Used to decode regular python list instead of ListContainer
-    """
-    def _decode(self, obj, context, path):
-        return list(obj)
-
-    def _encode(self, obj, context, path):
-        return obj
-
-
-def FixedUTF16String(size_func):
-    """At parse time parses a UTF16 string with a known size, and at build time builds the string with its given size.
-    """
-    return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"), GreedyString("UTF_16_le"))
-
-
-def FixedUTF16CString(size_func, ctx_str_name):
-    """At parse time parses a UTF16 string terminated with null byte with a known size, and at build time builds
-    the string with its given size.
-    If the given string is empty at build time, then build nothing instead of a single null character.
-    """
-    return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"),
-                      If(lambda ctx: ctx[ctx_str_name], CString("UTF_16_le")))
-
-
-def FixedArray(size_func, subcon):
-    """At parse time parses a fixed sized array, and at build time builds the array with its given size.
-    """
-    return ListAdapter(
-        IfThenElse(lambda this: this._parsing, FixedSized(size_func, GreedyRange(subcon)), GreedyRange(subcon)))
-
-
-def FixedBytes(size_func):
-    """At parse time parses a fixed sized byte array, and at build time builds the byte array with its given size.
-    """
-    return IfThenElse(lambda this: this._parsing, Bytes(size_func), GreedyBytes)
 
 
 # ===============================================================================
@@ -70,7 +19,7 @@ RuleRelationType = OriginalEnumAdapter(Int32ul, RuleRelation)
 ColumnType = OriginalEnumAdapter(Int32ul, Column)
 
 LOGFONTW = """
-see https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logfontw for documentation
+see https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logfontw for documentation.
 """ * Struct(
     "lfHeight" / Int32ul,
     "lfWidth" / Int32ul,
