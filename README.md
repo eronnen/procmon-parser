@@ -15,7 +15,7 @@ instead of having to convert the file to CSV/XML formats prior to loading.
  
 
 ### Supported Procmon versions
-3.53
+3.4.\*, 3.5.\*
 
 
 ## Process Monitor Configuration file (PMC)

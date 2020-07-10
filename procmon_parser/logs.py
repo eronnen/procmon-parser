@@ -249,19 +249,19 @@ class Process(object):
     def __repr__(self):
         return "Process({}, {}, {}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")"\
             .format(self.pid, self.parent_pid, self.authentication_id, self.session, self.virtualized,
-                    str(self.architecture), self.integrity, self.user, self.process_name, self.image_path,
+                    self.architecture.name, self.integrity, self.user, self.process_name, self.image_path,
                     self.command_line, self.company, self.version, self.description)
 
 
 class Event(object):
-    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=0, time=None, result=0,
+    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration_100_nanosec=0, date=None, result=0,
                  stacktrace=None, category=None, path=None, details=None):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
         self.operation = operation
-        self.duration = duration
-        self.time = time
+        self.duration_100_nanosec = duration_100_nanosec
+        self.date = date
         self.result = result
         self.stacktrace = stacktrace
         self.category = category
@@ -277,11 +277,11 @@ class Event(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "Pid={}, Operation={}, Path=\"{}\"".format(self.process.pid, self.operation, self.path)
+        return "Pid={}, Operation={}, Path=\"{}\", Details={}".format(self.process.pid, self.operation, self.path, self.details)
 
     def __repr__(self):
         return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \
-            .format(self.process, self.tid, self.event_class.name, self.operation, self.duration,
-                    self.time, self.result, self.category, self.path, self.details)
+            .format(self.process, self.tid, self.event_class.name, self.operation, self.duration_100_nanosec,
+                    self.date, self.result, self.category, self.path, self.details)
 
 

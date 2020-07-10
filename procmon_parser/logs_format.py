@@ -2,28 +2,36 @@
 Definitions For the process monitor logs file formats.
 """
 
+from collections import namedtuple
 from construct import Struct, Const, Validator, Int32ul, Int64ul, PaddedString, Bytes, Check, Array, PrefixedArray, \
-    Pointer, Tell, Switch, Error, Int16ul, IfThenElse, Byte, Computed, Int8ul, ExprAdapter, Adapter
-from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime
+    Pointer, Tell, Switch, Error, Int16ul, IfThenElse, Byte, Computed, Int8ul, ExprAdapter, Adapter, Rebuild, \
+    FlagsEnum, RepeatUntil, CString, Pass, Enum
+from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, ListAdapter
 from procmon_parser.logs import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
     FilesystemOperation, FilesystemQueryInformationOperation, FilesysemDirectoryControlOperation, \
     FilesystemSetInformationOperation, FilesystemPnpOperation, Architecture, Process, Event
 
 EventClassType = OriginalEnumAdapter(Int32ul, EventClass)
-ProcessOperationType = OriginalEnumAdapter(Int16ul, ProcessOperation)
-RegistryOperationType = OriginalEnumAdapter(Int16ul, RegistryOperation)
-NetworkOperationType = OriginalEnumAdapter(Int16ul, NetworkOperation)
-ProfilingOperationType = OriginalEnumAdapter(Int16ul, ProfilingOperation)
-FilesystemOperationType = OriginalEnumAdapter(Int16ul, FilesystemOperation)
-FilesystemQueryInformationOperationType = OriginalEnumAdapter(Int8ul, FilesystemQueryInformationOperation)
-FilesysemDirectoryControlOperationType = OriginalEnumAdapter(Int8ul, FilesysemDirectoryControlOperation)
-FilesystemSetInformationOperationType = OriginalEnumAdapter(Int8ul, FilesystemSetInformationOperation)
-FilesystemPnpOperationType = OriginalEnumAdapter(Int8ul, FilesystemPnpOperation)
+ProcessOperationType = Enum(Int16ul, ProcessOperation)
+RegistryOperationType = Enum(Int16ul, RegistryOperation)
+NetworkOperationType = Enum(Int16ul, NetworkOperation)
+ProfilingOperationType = Enum(Int16ul, ProfilingOperation)
+FilesystemOperationType = Enum(Int16ul, FilesystemOperation)
+FilesystemQueryInformationOperationType = Enum(Int8ul, FilesystemQueryInformationOperation)
+FilesysemDirectoryControlOperationType = Enum(Int8ul, FilesysemDirectoryControlOperation)
+FilesystemSetInformationOperationType = Enum(Int8ul, FilesystemSetInformationOperation)
+FilesystemPnpOperationType = Enum(Int8ul, FilesystemPnpOperation)
+NetworkOperationFlags = FlagsEnum(Int16ul, has_hostname=1, reserved=2, is_tcp=4)
 ArchitectureType = OriginalEnumAdapter(Int32ul, Architecture)
 StringIndex = ExprAdapter(Struct("string_index" / Int32ul), lambda obj, ctx: ctx._.strings_table[obj.string_index],
                           lambda obj, ctx: ctx._.strings_table.index(obj))
-ProcessIndex = ExprAdapter(Struct("process_index" / Int32ul), lambda obj, ctx: ctx._.processes_table[obj.process_index],
-                           lambda obj, ctx: ctx._.processes_table.index(obj))
+ProcessIndex = ExprAdapter(Struct("process_index" / Int32ul), lambda obj, ctx: ctx._.process_table[obj.process_index],
+                           lambda obj, ctx: ctx._.process_table.index(obj))
+HostnameIndex = ExprAdapter(Struct("host_index" / Int32ul), lambda obj, ctx: ctx.hosts_table[obj.host_index],
+                          lambda obj, ctx: ctx._.hosts_table.index(obj))
+PortIndex = ExprAdapter(Struct("port_index" / Int32ul), lambda obj, ctx: ctx.ports_table[obj.port_index],
+                          lambda obj, ctx: ctx._.ports_table.index(obj))
+PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
 
 
 class PMLVersionNumberValidator(Validator):
@@ -43,7 +51,7 @@ The header of the PML file.
     "reserved1" / Int64ul * "!!Unknown field!!",
     "events_offset" / Int64ul,
     "events_offsets_array_offset" / Int64ul,
-    "processes_table_offset" / Int64ul,
+    "process_table_offset" / Int64ul,
     "strings_table_offset" / Int64ul,
     "unknown_table_offset" / Int64ul,
     "reserved2" / Int64ul * "!!Unknown field!!",
@@ -56,7 +64,7 @@ The header of the PML file.
 
     Check(lambda this: this.events_offset == this.header_size),
     Check(lambda this:
-          0 != this.events_offset and 0 != this.events_offsets_array_offset and 0 != this.processes_table_offset and
+          0 != this.events_offset and 0 != this.events_offsets_array_offset and 0 != this.process_table_offset and
           0 != this.strings_table_offset and 0 != this.hosts_and_ports_tables_offset and 0 != this.unknown_table_offset)
 )
 
@@ -120,7 +128,7 @@ class ProcessStructAdapter(Adapter):
 
 
 ProcessStruct = ProcessStructAdapter(RawProcessStruct)
-ProcessesTable = """
+ProcessTable = """
 The table of all the processes that the events in the logs come from.
 """ * Struct(
     "table_offset" / Tell,
@@ -162,12 +170,55 @@ def EventsOffsetArray(number_of_events):
     return Array(number_of_events, Struct("offset" / Int32ul, "flags" / Byte))
 
 
-PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
-GenericEventInfo = """
+EventDetails = namedtuple("EventDetails", ['path', 'category', 'details'], defaults=['', '', {}])
+
+
+def fix_network_event_operation_name(obj, ctx):
+    """Fixes the operation name according to the protocol type
+    """
+    protocol = "TCP" if obj.is_tcp else "UDP"
+    ctx._.operation = protocol + " " + ctx._.operation
+
+
+RawNetworkDetailsStruct = """
+The structure that holds the specific network events details
+""" * Struct(
+    "hosts_table" / Computed(lambda ctx: ctx._._.hosts_table),  # keep a reference to the hosts table
+    "ports_table" / Computed(lambda ctx: ctx._._.ports_table),  # keep a reference to the ports table
+    NetworkOperationFlags * fix_network_event_operation_name,
+    "reserved1" / Int16ul,
+    "packet_length" / Int32ul,
+    "source_host" / HostnameIndex,
+    "reserved2" / Bytes(0xc) * "!!Unknown field!!",
+    "dest_host" / HostnameIndex,
+    "reserved3" / Bytes(0xc) * "!!Unknown field!!",
+    "source_port" / Int16ul,
+    "dest_port" / Int16ul,
+    "extra_details" / RepeatUntil(lambda x, lst, ctx: not x, CString("UTF_16_le"))
+)
+
+
+class NetworkDetailsAdapter(Adapter):
+    def _decode(self, obj, context, path):
+        details = {"Length": obj.packet_length}
+        for i in range(len(obj.extra_details) // 2):
+            details[obj.extra_details[i*2]] = obj.extra_details[i*2+1]
+        return EventDetails(
+            path="{}:{} -> {}:{}".format(obj.source_host, obj.source_port, obj.dest_host, obj.dest_port),
+            category="",
+            details=details
+        )
+
+    def _encode(self, obj, context, path):
+        raise NotImplementedError("building network detail structure is not supported yet")
+
+
+NetworkDetails = NetworkDetailsAdapter(RawNetworkDetailsStruct)
+RawEventStruct = """
 The generic structure that represents a single event of every event class 
 """ * Struct(
     "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # we keep this in order to use PVoid
-    "processes_table" / Computed(lambda ctx: ctx._.processes_table),  # keep reference to processes table
+    "process_table" / Computed(lambda ctx: ctx._.process_table),  # keep reference to processes table
     "process" / ProcessIndex,
     "thread_id" / Int32ul,
     "event_class" / EventClassType,
@@ -181,12 +232,40 @@ The generic structure that represents a single event of every event class
     "reserved1" / Int16ul * "!!Unknown field!!",
     "reserved2" / Int32ul * "!!Unknown field!!",
     "duration_100_nanosec" / Int64ul,
-    "time" / Filetime,
-    "result_value" / Int32ul,
-    "stacktrace_depth" / Int16ul,
+    "date" / Filetime,
+    "result" / Int32ul,
+    "stacktrace_depth" / Rebuild(Int16ul, lambda this: len(this.stacktrace)),
     Check(lambda this: this.stacktrace_depth <= 0x100),
     "reserved3" / Int16ul * "!!Unknown field!!",
     "detail_size" / Int32ul,
     "detail_offset" / Int32ul,
-    "stacktrace" / Array(lambda this: this.stacktrace_depth, PVoid)
+    "stacktrace" / ListAdapter(Array(lambda this: this.stacktrace_depth, PVoid)),
+    "details" / Switch(lambda this: this.event_class, {
+        EventClass.PROCESS: Pass,
+        EventClass.REGISTRY: Pass,
+        EventClass.NETWORK: NetworkDetails,
+        EventClass.PROFILING: Pass,
+        EventClass.FILESYSTEM: Pass,
+    }),
+
+    "operation" / Computed(lambda ctx: ctx.operation),  # The operation might be changed because of the specific details
 )
+
+
+class EventStructAdapter(Adapter):
+    def _decode(self, obj, context, path):
+        category = obj.details.category if obj.details else ''
+        path = obj.details.path if obj.details else ''
+        details = obj.details.details if obj.details else {}
+        return Event(process=obj.process, tid=obj.thread_id, event_class=obj.event_class, operation=obj.operation,
+                     duration_100_nanosec=obj.duration_100_nanosec, date=obj.date, result=obj.result,
+                     stacktrace=obj.stacktrace, category=category, path=path, details=details)
+
+    def _encode(self, obj, context, path):
+        return {"process": obj.process, "thread_id": obj.tid, "event_class": obj.event_class,
+                "operation": obj.operation, "duration_100_nanosec": obj.duration_100_nanosec,
+                "date": obj.date, "result": obj.result, "stacktrace": obj.stacktrace, "category": obj.category,
+                "path": obj.path, "detail": obj.detail}
+
+
+EventStruct = EventStructAdapter(RawEventStruct)
