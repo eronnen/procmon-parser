@@ -13,7 +13,13 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/eronnen/procmon-parser.git",
     packages=setuptools.find_packages(),
-    install_requires=["construct>=2.10.54", "six", "numpy"],
+    install_requires=[
+        "enum34;python_version<'3.4'",
+        "construct>=2.10.54",
+        "six",
+        "numpy",
+        "ipaddress;python_version<'3'",
+    ],
     classifiers=[
         "Intended Audience :: Developers",
         "Intended Audience :: Education",

@@ -17,7 +17,7 @@ instead of having to convert the file to CSV/XML formats prior to loading.
 3.4.\*, 3.5.\*
 
 
-## Process Monitor Configuration file (PMC)
+## PMC (Process Monitor Configuration) Parser
 
 ### Usage
 
@@ -78,7 +78,7 @@ and a value. The known record options are:
 
 For the raw binary format of **PMC** files you can refer to [configuration_format.py](procmon_parser/configuration_format.py).
 
-## Process Monitor Logs file (PML)
+## PML (Process Monitor Log) Parser
 
 ### Usage
 

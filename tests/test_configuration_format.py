@@ -1,6 +1,8 @@
 import pytest
 from construct import StringError
-from procmon_parser import loads_configuration, dumps_configuration, Rule, Column, RuleRelation, RuleAction
+from procmon_parser import loads_configuration, dumps_configuration
+from procmon_parser.configuration import Rule
+from procmon_parser.consts import Column, RuleRelation, RuleAction
 
 
 def test_parse_built_configuration_sanity():

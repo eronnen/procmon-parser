@@ -1,9 +1,40 @@
 import binascii
+import os
 import pytest
+import zlib
+
+
+RESOURCES_DIRECTORY = os.path.join(os.path.dirname(__file__), "resources")
+
+
+@pytest.fixture(scope='module')
+def pml_logs_32bit():
+    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests32bitUTCPML"), "rb") as f:
+        return zlib.decompress(f.read())
+
+
+@pytest.fixture(scope='module')
+def csv_logs_32bit():
+    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests32bitUTCCSV"), "rb") as f:
+        return zlib.decompress(f.read()).decode('utf-16le')  # I converted the csv file to UTF-16 from windows-1252
+
+
+@pytest.fixture(scope='module')
+def pml_logs_64bit():
+    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests64bitUTCPML"), "rb") as f:
+        return zlib.decompress(f.read())
+
+
+@pytest.fixture(scope='module')
+def csv_logs_64bit():
+    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests64bitUTCCSV"), "rb") as f:
+        return zlib.decompress(f.read()).decode('utf-16le')  # I converted the csv file to UTF-16 from windows-1252
 
 
 @pytest.fixture()
 def raw_config_full():
+    """a raw PMC binary data taken from my computer
+    """
     return binascii.unhexlify('a000000010000000200000008000000043006f006c0075006d006e0073000000840057006400c80064009600'
                               '6400640064006400640064006400640064006400640064006400640064006400640064006400640064000000'
                               '0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'

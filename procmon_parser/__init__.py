@@ -9,7 +9,6 @@ from procmon_parser.logs import *
 
 __all__ = [
     'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration', 'ProcmonLogsReader',
-    'RuleAction', 'RuleRelation', 'Column', 'Rule', 'Font'
 ]
 
 
@@ -85,8 +84,8 @@ class ProcmonLogsReader(object):
     def __read_hosts_and_ports_table(self):
         self._stream.seek(self._header.hosts_and_ports_tables_offset)
         raw_hosts_and_ports_table = HostsAndPortsTable.parse_stream(self._stream)
-        return {h.hostname_index: h.hostname.string for h in raw_hosts_and_ports_table.hosts}, \
-               {p.port_index: p.port.string for p in raw_hosts_and_ports_table.ports}
+        return {h.host_ip: h.hostname.string for h in raw_hosts_and_ports_table.hosts}, \
+               {(p.port_number, bool(p.is_tcp)): p.port.string for p in raw_hosts_and_ports_table.ports}
 
     def __iter__(self):
         return self

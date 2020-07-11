@@ -2,57 +2,10 @@
 Python types that procmon configuration uses
 """
 
-import enum
 from six import string_types
+from procmon_parser.consts import Column, RuleAction, RuleRelation
 
-__all__ = ['RuleAction', 'RuleRelation', 'Column', 'Rule', 'Font']
-
-
-class RuleAction(enum.IntEnum):
-    EXCLUDE = 0
-    INCLUDE = 1
-
-
-class RuleRelation(enum.IntEnum):
-    IS = 0
-    IS_NOT = 1
-    LESS_THAN = 2
-    MORE_THAN = 3
-    BEGINS_WITH = 4
-    ENDS_WITH = 5
-    CONTAINS = 6
-    EXCLUDES = 7
-
-
-class Column(enum.IntEnum):
-    NONE = 0
-    DATE_AND_TIME = 40052
-    PROCESS_NAME = 40053
-    PID = 40054
-    OPERATION = 40055
-    RESULT = 40056
-    DETAIL = 40057
-    SEQUENCE = 40058
-    COMPANY = 40064
-    DESCRIPTION = 40065
-    COMMAND_LINE = 40066
-    USER = 40067
-    IMAGE_PATH = 40068
-    SESSION = 40069
-    PATH = 40071
-    TID = 40072
-    RELATIVE_TIME = 40076
-    DURATION = 40077
-    TIME_OF_DAY = 40078
-    VERSION = 40081
-    EVENT_CLASS = 40082
-    AUTHENTICATION_ID = 40083
-    VIRTUALIZED = 40084
-    INTEGRITY = 40085
-    CATEGORY = 40086
-    PARENT_PID = 40087
-    ARCHITECTURE = 40088
-    COMPLETION_TIME = 40164
+__all__ = ['Column', 'RuleAction', 'RuleRelation', 'Rule', 'Font']
 
 
 class Rule(object):

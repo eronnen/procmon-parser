@@ -4,13 +4,15 @@ Definitions For specific event details in process monitor logs
 
 from collections import namedtuple, OrderedDict
 from construct import Int8ul, Int32ul, Struct, PaddedString, FlagsEnum, IfThenElse, Computed, Int16ul, Adapter, Bytes, \
-    Switch, Enum, ExprAdapter, Pass, Array, BitStruct, BitsInteger, Bit, ByteSwapped
+    Switch, Enum, ExprAdapter, Pass, Array, BitStruct, BitsInteger, Bit, ByteSwapped, SymmetricAdapter
 from six import string_types
+from ipaddress import IPv4Address, IPv6Address
 
 from procmon_parser.construct_helper import PVoid, UTF16MultiSz, SizedUTF16MultiSz, Duration
-from procmon_parser.logs import ProcessOperation, RegistryOperation, FilesystemOperation, \
+from procmon_parser.consts import ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemQueryInformationOperation, FilesysemDirectoryControlOperation, \
-    FilesystemSetInformationOperation, FilesystemPnpOperation
+    FilesystemSetInformationOperation, FilesystemPnpOperation, FilesystemQueryVolumeInformationOperation, \
+    FilesystemSetVolumeInformationOperation, FilesystemLockUnlockOperation
 
 
 __all__ = ['EventDetails', 'NetworkDetails', 'RegistryDetails', 'FilesystemDetails', 'ProcessDetails']
@@ -18,16 +20,35 @@ __all__ = ['EventDetails', 'NetworkDetails', 'RegistryDetails', 'FilesystemDetai
 
 EventDetails = namedtuple("EventDetails", ['path', 'category', 'details'])
 
-HostnameIndex = ExprAdapter(Struct("host_index" / Int32ul), lambda obj, ctx: ctx.hosts_table[obj.host_index],
-                            lambda obj, ctx: ctx._.hosts_table.index(obj))
-PortIndex = ExprAdapter(Struct("port_index" / Int32ul), lambda obj, ctx: ctx.ports_table[obj.port_index],
-                        lambda obj, ctx: ctx._.ports_table.index(obj))
 
+class HostnameString(SymmetricAdapter):
+    def __init__(self, is_ipv4_func):
+        super(HostnameString, self).__init__(Bytes(16))
+        self.is_ipv4_func = is_ipv4_func
+
+    def _decode(self, obj, context, path):
+        if obj in context.hosts_table:
+            if context.hosts_table[obj]:
+                return context.hosts_table[obj]
+        if self.is_ipv4_func(context):
+            return str(IPv4Address(obj[:4]))
+        return str(IPv6Address(obj))
+
+
+PortString = ExprAdapter(
+    Struct("port_number" / Int16ul),
+    lambda obj, ctx: ctx.ports_table.get((obj.port_number, bool(ctx.flags.is_tcp)), str(obj.port_number)),
+    lambda obj, ctx: ctx.ports_table.index(obj))
+
+
+FilesystemQueryVolumeInformationOperationType = Enum(Int8ul, FilesystemQueryVolumeInformationOperation)
+FilesystemSetVolumeInformationOperationType = Enum(Int8ul, FilesystemSetVolumeInformationOperation)
 FilesystemQueryInformationOperationType = Enum(Int8ul, FilesystemQueryInformationOperation)
 FilesystemDirectoryControlOperationType = Enum(Int8ul, FilesysemDirectoryControlOperation)
 FilesystemSetInformationOperationType = Enum(Int8ul, FilesystemSetInformationOperation)
 FilesystemPnpOperationType = Enum(Int8ul, FilesystemPnpOperation)
-NetworkOperationFlags = FlagsEnum(Int16ul, has_hostname=1, reserved=2, is_tcp=4)
+FilesystemLockUnlockOperationType = Enum(Int8ul, FilesystemLockUnlockOperation)
+NetworkOperationFlags = FlagsEnum(Int16ul, is_source_ipv4=1, is_dest_ipv4=2, is_tcp=4)
 DetailStringInfo = ByteSwapped(BitStruct("is_ascii" / Bit, "char_count" / BitsInteger(15)))
 
 
@@ -52,14 +73,12 @@ The structure that holds the specific network events details
     "hosts_table" / Computed(lambda ctx: ctx._._.hosts_table),  # keep a reference to the hosts table
     "ports_table" / Computed(lambda ctx: ctx._._.ports_table),  # keep a reference to the ports table
     "flags" / NetworkOperationFlags * fix_network_event_operation_name,
-    "reserved1" / Int16ul,
+    "reserved1" / Int16ul * "!!Unknown field!!",
     "packet_length" / Int32ul,
-    "source_host" / HostnameIndex,
-    "reserved2" / Bytes(0xc) * "!!Unknown field!!",
-    "dest_host" / HostnameIndex,
-    "reserved3" / Bytes(0xc) * "!!Unknown field!!",
-    "source_port" / Int16ul,
-    "dest_port" / Int16ul,
+    "source_host" / HostnameString(lambda ctx: ctx.flags.is_source_ipv4),
+    "dest_host" / HostnameString(lambda ctx: ctx.flags.is_dest_ipv4),
+    "source_port" / PortString,
+    "dest_port" / PortString,
     "extra_details" / UTF16MultiSz
 )
 
@@ -109,6 +128,26 @@ RegistryDetails = ExprAdapter(
 )
 
 
+def fix_query_directory_path(obj, ctx):
+    """for some QueryDirectory operations the path is concatenated to the relevant directory
+    """
+    if obj:
+        ctx._.path = ctx._.path + obj if ctx._.path[-1] == "\\" else ctx._.path + "\\" + obj
+
+
+QueryDirectoryDetailsStruct = Struct(
+    "directory_name_info" / DetailStringInfo,
+    "directory_name" / DetailString(lambda this: this.directory_name_info) * fix_query_directory_path,
+)
+
+
+QueryDirectoryDetails = ExprAdapter(
+    QueryDirectoryDetailsStruct,
+    lambda obj, ctx: OrderedDict([('Filter', obj.directory_name)]) if obj.directory_name else {},
+    lambda obj, ctx: None  # building file system detail structure is not supported yet
+)
+
+
 def fix_filesystem_event_operation_name(obj, ctx):
     """Fixes the operation name if there is a sub operation
     """
@@ -121,23 +160,31 @@ The structure that holds the specific file system events details
 """ * Struct(
     "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # we keep this in order to use PVoid
     "sub_operation" / Switch(lambda ctx: ctx._.operation, {
+        FilesystemOperation.QueryVolumeInformation.name: FilesystemQueryVolumeInformationOperationType,
+        FilesystemOperation.SetVolumeInformation.name: FilesystemSetVolumeInformationOperationType,
         FilesystemOperation.QueryInformationFile.name: FilesystemQueryInformationOperationType,
         FilesystemOperation.SetInformationFile.name: FilesystemSetInformationOperationType,
         FilesystemOperation.DirectoryControl.name: FilesystemDirectoryControlOperationType,
         FilesystemOperation.PlugAndPlay.name: FilesystemPnpOperationType,
+        FilesystemOperation.LockUnlockFile.name: FilesystemLockUnlockOperationType,
     }, Int8ul) * fix_filesystem_event_operation_name,
     "reserved1" / Int8ul * "!!Unknown field!!",
     "reserved2" / Array(5, PVoid) * "!!Unknown field!!",
     "reserved3" / Bytes(0x16) * "!!Unknown field!!",
     "path_info" / DetailStringInfo,
     "reserved3" / Int16ul,
-    "path" / DetailString(lambda this: this.path_info)
+    "path" / DetailString(lambda this: this.path_info),
+    "operation_detail" / Switch(lambda ctx: ctx._.operation, {
+        FilesysemDirectoryControlOperation.QueryDirectory.name: QueryDirectoryDetails
+    }, Pass),
+
+    "path" / Computed(lambda ctx: ctx.path),  # The path might be changed because of the specific file operation
 )
 
 
 FilesystemDetails = ExprAdapter(
     RawFilesystemDetailsStruct,
-    lambda obj, ctx: EventDetails(path=obj.path, category='', details={}),
+    lambda obj, ctx: EventDetails(path=obj.path, category='', details=obj.operation_detail or {}),
     lambda obj, ctx: None  # building file system detail structure is not supported yet
 )
 

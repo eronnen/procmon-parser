@@ -7,8 +7,9 @@ from construct import Struct, Const, SymmetricAdapter, Int32ul, Int64ul, PaddedS
 from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, \
     ListAdapter, PVoid, Duration, CheckCustom
 from procmon_parser.logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
-from procmon_parser.logs import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
-    FilesystemOperation, Process, Event
+from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
+    FilesystemOperation
+from procmon_parser.logs import Process, Event
 
 EventClassType = OriginalEnumAdapter(Int32ul, EventClass)
 ProcessOperationType = Enum(Int16ul, ProcessOperation)
@@ -146,15 +147,15 @@ Tables for the host names and port names used by network events.
     "hosts" / PrefixedArray(
         Int32ul,
         Struct(
-            "hostname_index" / Int32ul,
-            "reserved1" / Bytes(0xc) * "!!Unknown field!!",
+            "host_ip" / Bytes(16),
             "hostname" / FixedNullTerminatedUTF16String,
         )
     ),
     "ports" / PrefixedArray(
         Int32ul,
         Struct(
-            "port_index" / Int32ul,
+            "port_number" / Int16ul,
+            "is_tcp" / Int16ul,
             "port" / FixedNullTerminatedUTF16String,
         )
     ),
