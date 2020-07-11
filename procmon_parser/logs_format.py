@@ -6,7 +6,7 @@ from construct import Struct, Const, Validator, Int32ul, Int64ul, PaddedString, 
     Pointer, Tell, Switch, Error, Int16ul, Byte, Computed, ExprAdapter, Adapter, Rebuild, \
     Pass, Enum
 from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, \
-    ListAdapter, PVoid
+    ListAdapter, PVoid, Duration
 from procmon_parser.logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
 from procmon_parser.logs import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
     FilesystemOperation, Architecture, Process, Event
@@ -178,7 +178,7 @@ The generic structure that represents a single event of every event class
     }, Error),
     "reserved1" / Int16ul * "!!Unknown field!!",
     "reserved2" / Int32ul * "!!Unknown field!!",
-    "duration_100_nanosec" / Int64ul,
+    "duration" / Duration,
     "date" / Filetime,
     "result" / Int32ul,
     "stacktrace_depth" / Rebuild(Int16ul, lambda this: len(this.stacktrace)),
@@ -205,12 +205,12 @@ class EventStructAdapter(Adapter):
         path = obj.details.path if obj.details else ''
         details = obj.details.details if obj.details else {}
         return Event(process=obj.process, tid=obj.thread_id, event_class=obj.event_class, operation=obj.operation,
-                     duration_100_nanosec=obj.duration_100_nanosec, date=obj.date, result=obj.result,
+                     duration=obj.duration, date=obj.date, result=obj.result,
                      stacktrace=obj.stacktrace, category=category, path=path, details=details, file_offset=obj.offset)
 
     def _encode(self, obj, context, path):
         return {"process": obj.process, "thread_id": obj.tid, "event_class": obj.event_class,
-                "operation": obj.operation, "duration_100_nanosec": obj.duration_100_nanosec,
+                "operation": obj.operation, "duration": obj.duration,
                 "date": obj.date, "result": obj.result, "stacktrace": obj.stacktrace, "category": obj.category,
                 "path": obj.path, "detail": obj.detail}
 

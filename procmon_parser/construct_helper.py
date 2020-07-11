@@ -70,6 +70,11 @@ class FiletimeAdapter(Adapter):
 
 
 Filetime = FiletimeAdapter(Int64ul)
+Duration = ExprAdapter(
+    Int64ul,
+    lambda obj, ctx: datetime.timedelta(microseconds=obj // 10),
+    lambda obj, ctx: int(obj.total_seconds() * (10 ** 7))
+)
 
 
 PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)

@@ -7,7 +7,7 @@ from construct import Int8ul, Int32ul, Struct, PaddedString, FlagsEnum, IfThenEl
     Switch, Enum, ExprAdapter, Pass, Array, BitStruct, BitsInteger, Bit, ByteSwapped
 from six import string_types
 
-from procmon_parser.construct_helper import PVoid, UTF16MultiSz, SizedUTF16MultiSz
+from procmon_parser.construct_helper import PVoid, UTF16MultiSz, SizedUTF16MultiSz, Duration
 from procmon_parser.logs import ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemQueryInformationOperation, FilesysemDirectoryControlOperation, \
     FilesystemSetInformationOperation, FilesystemPnpOperation
@@ -151,10 +151,26 @@ RawLoadImageDetailsStruct = Struct(
     "path" / DetailString(lambda this: this.path_info)
 )
 
+
 LoadImageDetails = ExprAdapter(
     RawLoadImageDetailsStruct,
     lambda obj, ctx: EventDetails(path=obj.path, category='',
                                   details={"Image Base": obj.image_base, "Image Size": obj.image_size}),
+    lambda obj, ctx: None  # building load image detail structure is not supported yet
+)
+
+
+RawThreadExitDetails = Struct(
+    "reserved1" / Int32ul * "!!Unknown field!!",
+    "kernel_time" / Duration,
+    "user_time" / Duration,
+)
+
+ThreadExitDetails = ExprAdapter(
+    RawThreadExitDetails,
+    lambda obj, ctx: EventDetails(path='', category='',
+                                  details={"Thread ID": ctx._.thread_id, "User Time": obj.user_time,
+                                           "Kernel Time": obj.kernel_time}),
     lambda obj, ctx: None  # building load image detail structure is not supported yet
 )
 
@@ -209,7 +225,7 @@ The structure that holds the specific process events details
         ProcessOperation.Process_Create.name: ProcessCreateDetails,
         ProcessOperation.Process_Exit.name: Pass,
         ProcessOperation.Thread_Create.name: Pass,
-        ProcessOperation.Thread_Exit.name: Pass,
+        ProcessOperation.Thread_Exit.name: ThreadExitDetails,
         ProcessOperation.Load_Image.name: LoadImageDetails,
         ProcessOperation.Thread_Profile.name: Pass,
         ProcessOperation.Process_Start.name: ProcessStartDetails,

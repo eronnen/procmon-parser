@@ -254,13 +254,13 @@ class Process(object):
 
 
 class Event(object):
-    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration_100_nanosec=0, date=None, result=0,
+    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=0, date=None, result=0,
                  stacktrace=None, category=None, path=None, details=None, file_offset=0):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
         self.operation = operation
-        self.duration_100_nanosec = duration_100_nanosec
+        self.duration = duration
         self.date = date
         self.result = result
         self.stacktrace = stacktrace
@@ -283,7 +283,7 @@ class Event(object):
 
     def __repr__(self):
         return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \
-            .format(self.process, self.tid, self.event_class.name, self.operation, self.duration_100_nanosec,
+            .format(self.process, self.tid, self.event_class.name, self.operation, self.duration,
                     self.date, self.result, self.category, self.path, self.details)
 
 
