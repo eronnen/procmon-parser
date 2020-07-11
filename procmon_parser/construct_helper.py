@@ -1,6 +1,6 @@
 import datetime
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
-    GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError
+    GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError, RepeatUntil, ExprAdapter
 
 
 # ===============================================================================
@@ -73,6 +73,21 @@ Filetime = FiletimeAdapter(Int64ul)
 
 
 PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
+
+
+UTF16MultiSz = ExprAdapter(
+    RepeatUntil(lambda x, lst, ctx: not x, CString("UTF_16_le")),
+    lambda obj, ctx: list(obj[:-1]),  # last element is the null
+    lambda obj, ctx: obj + ['']
+)
+
+
+def SizedUTF16MultiSz(size_func):
+    return ExprAdapter(
+        FixedSized(size_func, GreedyRange(CString("UTF_16_le"))),
+        lambda obj, ctx: list(obj[:-1]),  # last element is the null
+        lambda obj, ctx: obj + ['']
+    )
 
 
 class CheckCustom(Check):
