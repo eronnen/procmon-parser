@@ -2,7 +2,7 @@
 Definitions For specific event details in process monitor logs
 """
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from construct import Int8ul, Int32ul, Struct, PaddedString, FlagsEnum, IfThenElse, Computed, Int16ul, Adapter, Bytes, \
     Switch, Enum, ExprAdapter, Pass, Array, BitStruct, BitsInteger, Bit, ByteSwapped
 from six import string_types
@@ -66,7 +66,7 @@ The structure that holds the specific network events details
 
 class NetworkDetailsAdapter(Adapter):
     def _decode(self, obj, context, path):
-        details = {"Length": obj.packet_length}
+        details = OrderedDict([("Length", obj.packet_length)])
         for i in range(len(obj.extra_details) // 2):
             details[obj.extra_details[i*2]] = obj.extra_details[i*2+1]
         return EventDetails(
@@ -113,7 +113,7 @@ def fix_filesystem_event_operation_name(obj, ctx):
     """Fixes the operation name if there is a sub operation
     """
     if isinstance(obj, string_types):
-        ctx._.operation = obj.sub_operation
+        ctx._.operation = obj
 
 
 RawFilesystemDetailsStruct = """
@@ -121,10 +121,10 @@ The structure that holds the specific file system events details
 """ * Struct(
     "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # we keep this in order to use PVoid
     "sub_operation" / Switch(lambda ctx: ctx._.operation, {
-        FilesystemOperation.QueryInformationFile: FilesystemQueryInformationOperationType,
-        FilesystemOperation.SetInformationFile: FilesystemSetInformationOperationType,
-        FilesystemOperation.DirectoryControl: FilesystemDirectoryControlOperationType,
-        FilesystemOperation.PlugAndPlay: FilesystemPnpOperationType,
+        FilesystemOperation.QueryInformationFile.name: FilesystemQueryInformationOperationType,
+        FilesystemOperation.SetInformationFile.name: FilesystemSetInformationOperationType,
+        FilesystemOperation.DirectoryControl.name: FilesystemDirectoryControlOperationType,
+        FilesystemOperation.PlugAndPlay.name: FilesystemPnpOperationType,
     }, Int8ul) * fix_filesystem_event_operation_name,
     "reserved1" / Int8ul * "!!Unknown field!!",
     "reserved2" / Array(5, PVoid) * "!!Unknown field!!",
@@ -155,7 +155,8 @@ RawLoadImageDetailsStruct = Struct(
 LoadImageDetails = ExprAdapter(
     RawLoadImageDetailsStruct,
     lambda obj, ctx: EventDetails(path=obj.path, category='',
-                                  details={"Image Base": obj.image_base, "Image Size": obj.image_size}),
+                                  details=OrderedDict([("Image Base", obj.image_base),
+                                                       ("Image Size", obj.image_size)])),
     lambda obj, ctx: None  # building load image detail structure is not supported yet
 )
 
@@ -169,8 +170,8 @@ RawThreadExitDetails = Struct(
 ThreadExitDetails = ExprAdapter(
     RawThreadExitDetails,
     lambda obj, ctx: EventDetails(path='', category='',
-                                  details={"Thread ID": ctx._.thread_id, "User Time": obj.user_time,
-                                           "Kernel Time": obj.kernel_time}),
+                                  details=OrderedDict([("Thread ID", ctx._.thread_id), ("User Time", obj.user_time),
+                                                       ("Kernel Time", obj.kernel_time)])),
     lambda obj, ctx: None  # building load image detail structure is not supported yet
 )
 
@@ -192,7 +193,7 @@ RawProcessCreateDetailsStruct = Struct(
 ProcessCreateDetails = ExprAdapter(
     RawProcessCreateDetailsStruct,
     lambda obj, ctx: EventDetails(path=obj.path, category='',
-                                  details={"PID": obj.pid, "Command line": obj.command_line}),
+                                  details=OrderedDict([("PID", obj.pid), ("Command line", obj.command_line)])),
     lambda obj, ctx: None  # building process create detail structure is not supported yet
 )
 
@@ -210,9 +211,10 @@ RawProcessStartDetailsStruct = Struct(
 ProcessStartDetails = ExprAdapter(
     RawProcessStartDetailsStruct,
     lambda obj, ctx: EventDetails(path='', category='',
-                                  details={"Parent PID": obj.parent_pid, "Command line": obj.command_line,
-                                           "Current directory": obj.current_directory,
-                                           "Environment": "\r\n;\t" + "\r\n;\t".join(obj.environment)}),
+                                  details=OrderedDict([("Parent PID", obj.parent_pid),
+                                                       ("Command line", obj.command_line),
+                                                       ("Current directory", obj.current_directory),
+                                                       ("Environment", "\r\n;\t" + "\r\n;\t".join(obj.environment))])),
     lambda obj, ctx: None  # building process create detail structure is not supported yet
 )
 

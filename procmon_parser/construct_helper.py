@@ -1,4 +1,4 @@
-import datetime
+from numpy import datetime64, timedelta64, uint64
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
     GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError, RepeatUntil, ExprAdapter
 
@@ -63,20 +63,28 @@ FixedNullTerminatedUTF16String = Struct(  # I don't use PascalString because it'
 
 class FiletimeAdapter(Adapter):
     def _decode(self, obj, context, path):
-        return datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=obj / 10)
+        secs = int(obj // int(1e7))
+        nanosecs = int(obj - int(secs * int(1e7))) * 100
+        return datetime64('1601-01-01') + timedelta64(secs, 's') + timedelta64(nanosecs, 'ns')
 
     def _encode(self, obj, context, path):
-        return int((obj - datetime.datetime(1601, 1, 1)).total_seconds() * (10 ** 7))
+        return int(uint64((obj - datetime64('1601-01-01')).astype('O'))) // 100
 
 
 Filetime = FiletimeAdapter(Int64ul)
-Duration = ExprAdapter(
-    Int64ul,
-    lambda obj, ctx: datetime.timedelta(microseconds=obj // 10),
-    lambda obj, ctx: int(obj.total_seconds() * (10 ** 7))
-)
 
 
+class DurationAdapter(Adapter):
+    def _decode(self, obj, context, path):
+        secs = obj // (10 ** 7)
+        nanosecs = (obj - secs * (10 ** 7)) * 100
+        return timedelta64(secs, 's') + timedelta64(nanosecs, 'ns')
+
+    def _encode(self, obj, context, path):
+        return int(uint64(obj.astype('O')))
+
+
+Duration = DurationAdapter(Int64ul)
 PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
 
 

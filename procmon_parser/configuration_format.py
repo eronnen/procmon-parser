@@ -3,9 +3,9 @@ Definitions For the process monitor configuration file formats.
 """
 
 from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, Array, Const, Switch, Tell, Adapter, \
-    Rebuild, Default, Pointer, Check
+    Rebuild, Default, Pointer
 from procmon_parser.construct_helper import OriginalEnumAdapter, FixedUTF16String, FixedUTF16CString, FixedArray, \
-    FixedBytes
+    FixedBytes, CheckCustom
 from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
 
 __all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record']
@@ -159,7 +159,8 @@ Struct that contains generic procmon configuration option.
         Default(Int32ul, lambda this: this.record_header_and_name_size + this.data_size)
     ),
 
-    Check(lambda this: this.record_size == this.record_header_and_name_size + this.data_size)
+    CheckCustom(lambda this: this.record_size == this.record_header_and_name_size + this.data_size,
+                RuntimeError, "Record size is not valid")
 )
 
 
