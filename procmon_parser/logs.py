@@ -255,7 +255,7 @@ class Process(object):
 
 class Event(object):
     def __init__(self, process=None, tid=0, event_class=None, operation=None, duration_100_nanosec=0, date=None, result=0,
-                 stacktrace=None, category=None, path=None, details=None):
+                 stacktrace=None, category=None, path=None, details=None, file_offset=0):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
@@ -267,6 +267,7 @@ class Event(object):
         self.category = category
         self.path = path
         self.details = details
+        self._file_offset = file_offset
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -277,7 +278,8 @@ class Event(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "Pid={}, Operation={}, Path=\"{}\", Details={}".format(self.process.pid, self.operation, self.path, self.details)
+        return "File offset=0x{:x}, Process Name={}, Pid={}, Operation={}, Path=\"{}\", Details={}".format(
+            self._file_offset, self.process.process_name, self.process.pid, self.operation, self.path, self.details)
 
     def __repr__(self):
         return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \

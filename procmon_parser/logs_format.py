@@ -2,15 +2,14 @@
 Definitions For the process monitor logs file formats.
 """
 
-from collections import namedtuple
 from construct import Struct, Const, Validator, Int32ul, Int64ul, PaddedString, Bytes, Check, Array, PrefixedArray, \
-    Pointer, Tell, Switch, Error, Int16ul, IfThenElse, Byte, Computed, Int8ul, ExprAdapter, Adapter, Rebuild, \
-    FlagsEnum, RepeatUntil, CString, Pass, Enum , If
-from six import string_types
-from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, ListAdapter
+    Pointer, Tell, Switch, Error, Int16ul, Byte, Computed, ExprAdapter, Adapter, Rebuild, \
+    Pass, Enum
+from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, \
+    ListAdapter, PVoid
+from procmon_parser.logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
 from procmon_parser.logs import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
-    FilesystemOperation, FilesystemQueryInformationOperation, FilesysemDirectoryControlOperation, \
-    FilesystemSetInformationOperation, FilesystemPnpOperation, Architecture, Process, Event
+    FilesystemOperation, Architecture, Process, Event
 
 EventClassType = OriginalEnumAdapter(Int32ul, EventClass)
 ProcessOperationType = Enum(Int16ul, ProcessOperation)
@@ -18,21 +17,11 @@ RegistryOperationType = Enum(Int16ul, RegistryOperation)
 NetworkOperationType = Enum(Int16ul, NetworkOperation)
 ProfilingOperationType = Enum(Int16ul, ProfilingOperation)
 FilesystemOperationType = Enum(Int16ul, FilesystemOperation)
-FilesystemQueryInformationOperationType = Enum(Int8ul, FilesystemQueryInformationOperation)
-FilesystemDirectoryControlOperationType = Enum(Int8ul, FilesysemDirectoryControlOperation)
-FilesystemSetInformationOperationType = Enum(Int8ul, FilesystemSetInformationOperation)
-FilesystemPnpOperationType = Enum(Int8ul, FilesystemPnpOperation)
-NetworkOperationFlags = FlagsEnum(Int16ul, has_hostname=1, reserved=2, is_tcp=4)
 ArchitectureType = OriginalEnumAdapter(Int32ul, Architecture)
 StringIndex = ExprAdapter(Struct("string_index" / Int32ul), lambda obj, ctx: ctx._.strings_table[obj.string_index],
                           lambda obj, ctx: ctx._.strings_table.index(obj))
 ProcessIndex = ExprAdapter(Struct("process_index" / Int32ul), lambda obj, ctx: ctx._.process_table[obj.process_index],
                            lambda obj, ctx: ctx._.process_table.index(obj))
-HostnameIndex = ExprAdapter(Struct("host_index" / Int32ul), lambda obj, ctx: ctx.hosts_table[obj.host_index],
-                            lambda obj, ctx: ctx._.hosts_table.index(obj))
-PortIndex = ExprAdapter(Struct("port_index" / Int32ul), lambda obj, ctx: ctx.ports_table[obj.port_index],
-                        lambda obj, ctx: ctx._.ports_table.index(obj))
-PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
 
 
 class PMLVersionNumberValidator(Validator):
@@ -171,127 +160,10 @@ def EventsOffsetArray(number_of_events):
     return Array(number_of_events, Struct("offset" / Int32ul, "flags" / Byte))
 
 
-EventDetails = namedtuple("EventDetails", ['path', 'category', 'details'], defaults=['', '', {}])
-PathFlags = FlagsEnum(Int8ul, is_ascii=0x80)
-
-
-def Path(path_size_func, path_flags_func):
-    return IfThenElse(lambda ctx: path_flags_func(ctx).is_ascii, PaddedString(path_size_func, "ascii"),
-                      PaddedString(path_size_func, "UTF_16_le"))
-
-
-def fix_network_event_operation_name(obj, ctx):
-    """Fixes the operation name according to the protocol type
-    """
-    protocol = "TCP" if obj.is_tcp else "UDP"
-    ctx._.operation = protocol + " " + ctx._.operation
-
-
-RawNetworkDetailsStruct = """
-The structure that holds the specific network events details
-""" * Struct(
-    "hosts_table" / Computed(lambda ctx: ctx._._.hosts_table),  # keep a reference to the hosts table
-    "ports_table" / Computed(lambda ctx: ctx._._.ports_table),  # keep a reference to the ports table
-    "flags" / NetworkOperationFlags * fix_network_event_operation_name,
-    "reserved1" / Int16ul,
-    "packet_length" / Int32ul,
-    "source_host" / HostnameIndex,
-    "reserved2" / Bytes(0xc) * "!!Unknown field!!",
-    "dest_host" / HostnameIndex,
-    "reserved3" / Bytes(0xc) * "!!Unknown field!!",
-    "source_port" / Int16ul,
-    "dest_port" / Int16ul,
-    "extra_details" / RepeatUntil(lambda x, lst, ctx: not x, CString("UTF_16_le"))
-)
-
-
-class NetworkDetailsAdapter(Adapter):
-    def _decode(self, obj, context, path):
-        details = {"Length": obj.packet_length}
-        for i in range(len(obj.extra_details) // 2):
-            details[obj.extra_details[i*2]] = obj.extra_details[i*2+1]
-        return EventDetails(
-            path="{}:{} -> {}:{}".format(obj.source_host, obj.source_port, obj.dest_host, obj.dest_port),
-            category="",
-            details=details
-        )
-
-    def _encode(self, obj, context, path):
-        raise NotImplementedError("building network detail structure is not supported yet")
-
-
-NetworkDetails = NetworkDetailsAdapter(RawNetworkDetailsStruct)
-RawRegistryDetailsStruct = """
-The structure that holds the specific registry events details
-""" * Struct(
-    "path_length" / Int8ul,
-    "path_flags" / PathFlags,
-    "reserved" / Bytes(
-        lambda ctx: 0 if ctx._.operation in [RegistryOperation.RegCloseKey.name, RegistryOperation.RegDeleteKey.name,
-                                            RegistryOperation.RegDeleteValue.name, RegistryOperation.RegFlushKey.name,
-                                            RegistryOperation.RegUnloadKey.name,
-                                            RegistryOperation.RegQueryMultipleValueKey.name,
-                                            RegistryOperation.RegSetKeySecurity.name,
-                                            RegistryOperation.RegQueryKeySecurity.name]
-        else 2 if ctx._.operation in [RegistryOperation.RegLoadKey.name, RegistryOperation.RegRenameKey.name]
-        else 6 if ctx._.operation in [RegistryOperation.RegOpenKey.name, RegistryOperation.RegCreateKey.name]
-        else 10 if ctx._.operation in [RegistryOperation.RegQueryKey.name, RegistryOperation.RegQueryValue.name]
-        else 14 if ctx._.operation in [RegistryOperation.RegSetValue.name, RegistryOperation.RegEnumValue.name,
-                                      RegistryOperation.RegEnumKey.name, RegistryOperation.RegSetInfoKey.name]
-        else 0,
-    ) * "!!Unknown field!!",
-    "path" / Path(lambda this: this.path_length, lambda this: this.path_flags)
-)
-
-
-class RegistryDetailsAdapter(Adapter):
-    def _decode(self, obj, context, path):
-        return EventDetails(path=obj.path, category="", details={})
-
-    def _encode(self, obj, context, path):
-        raise NotImplementedError("building registry detail structure is not supported yet")
-
-
-RegistryDetails = RegistryDetailsAdapter(RawRegistryDetailsStruct)
-
-
-def fix_filesystem_event_operation_name(obj, ctx):
-    """Fixes the operation name if there is a sub operation
-    """
-    if isinstance(obj.sub_operation, string_types):
-        ctx._.operation = obj.sub_operation
-
-
-RawFilesystemDetailsStruct = """
-The structure that holds the specific file system events details
-""" * Struct(
-    "sub_operation" / Switch(lambda ctx: ctx._.operation, {
-        FilesystemOperation.QueryInformationFile: FilesystemQueryInformationOperationType,
-        FilesystemOperation.SetInformationFile: FilesystemSetInformationOperationType,
-        FilesystemOperation.DirectoryControl: FilesystemDirectoryControlOperationType,
-        FilesystemOperation.PlugAndPlay: FilesystemPnpOperationType,
-    }, Int8ul),
-    "reserved1" / Int8ul * "!!Unknown field!!",
-    "reserved2" / Bytes(0x3e) * "!!Unknown field!!",
-    "path_length" / Int8ul,
-    "path_flags" / PathFlags,
-    "reserved3" / Int16ul,
-    "path" / Path(lambda this: this.path_length, lambda this: this.path_flags)
-)
-
-
-class FilesystemDetailsAdapter(Adapter):
-    def _decode(self, obj, context, path):
-        return EventDetails(path=obj.path, category="", details={})
-
-    def _encode(self, obj, context, path):
-        raise NotImplementedError("building file system detail structure is not supported yet")
-
-
-FilesystemDetails = FilesystemDetailsAdapter(RawFilesystemDetailsStruct)
 RawEventStruct = """
 The generic structure that represents a single event of every event class 
 """ * Struct(
+    "offset" / Tell,
     "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # we keep this in order to use PVoid
     "process_table" / Computed(lambda ctx: ctx._.process_table),  # keep reference to processes table
     "process" / ProcessIndex,
@@ -316,7 +188,7 @@ The generic structure that represents a single event of every event class
     "detail_offset" / Int32ul,
     "stacktrace" / ListAdapter(Array(lambda this: this.stacktrace_depth, PVoid)),
     "details" / Switch(lambda this: this.event_class, {
-        EventClass.PROCESS: Pass,
+        EventClass.PROCESS: ProcessDetails,
         EventClass.REGISTRY: RegistryDetails,
         EventClass.NETWORK: NetworkDetails,
         EventClass.PROFILING: Pass,
@@ -334,7 +206,7 @@ class EventStructAdapter(Adapter):
         details = obj.details.details if obj.details else {}
         return Event(process=obj.process, tid=obj.thread_id, event_class=obj.event_class, operation=obj.operation,
                      duration_100_nanosec=obj.duration_100_nanosec, date=obj.date, result=obj.result,
-                     stacktrace=obj.stacktrace, category=category, path=path, details=details)
+                     stacktrace=obj.stacktrace, category=category, path=path, details=details, file_offset=obj.offset)
 
     def _encode(self, obj, context, path):
         return {"process": obj.process, "thread_id": obj.tid, "event_class": obj.event_class,

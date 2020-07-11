@@ -1,6 +1,6 @@
 import datetime
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
-    GreedyBytes, If, Struct, Int32ul, Int64ul
+    GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError
 
 
 # ===============================================================================
@@ -70,3 +70,25 @@ class FiletimeAdapter(Adapter):
 
 
 Filetime = FiletimeAdapter(Int64ul)
+
+
+PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
+
+
+class CheckCustom(Check):
+    def __init__(self, func, exc_type, msg):
+        super(CheckCustom, self).__init__(func)
+        self.exc_type = exc_type
+        self.msg = msg
+
+    def _build(self, obj, stream, context, path):
+        try:
+            super(CheckCustom, self)._build(obj, stream, context, path)
+        except CheckError:
+            raise self.exc_type(self.msg)
+
+    def _parse(self, stream, context, path):
+        try:
+            super(CheckCustom, self)._parse(stream, context, path)
+        except CheckError:
+            raise self.exc_type(self.msg)
