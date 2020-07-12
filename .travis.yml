@@ -13,8 +13,8 @@ install:
 script: pytest
 
 after_success:
-  - coverage run -m pytest .
-  - coveralls --source= procmon_parser/
+  - coverage run --source=procmon_parser/ -m pytest .
+  - coveralls
 
 notifications:
   email:
