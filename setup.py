@@ -5,14 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="procmon-parser",
-    version="0.1.1",
+    version="0.2.0",
     author="Ely Ronnen",
     author_email="elyronnen@gmail.com",
     description="Parser to Procmon configuration and log files formats",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/eronnen/procmon-parser.git",
-    download_url="https://github.com/eronnen/procmon-parser/archive/v0.1.0.tar.gz",
+    download_url="https://github.com/eronnen/procmon-parser/archive/v0.2.0.tar.gz",
     packages=setuptools.find_packages(),
     install_requires=[
         "enum34;python_version<'3.4'",

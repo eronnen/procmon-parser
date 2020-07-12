@@ -5,29 +5,23 @@ Python types that procmon logs use
 import datetime
 from six import string_types
 from numpy import timedelta64
-from procmon_parser.consts import Column, EventClass, ErrorCodeMessages
+from procmon_parser.consts import Column, EventClass, get_error_message
 
 
-class Process(object):
-    """Information about a process in the system
+__all__ = ['Module', 'Process', 'Event']
+
+
+class Module(object):
+    """Information about a loaded module in a process or in the kernel
     """
-
-    def __init__(self, pid=0, parent_pid=0, authentication_id=0, session=0, virtualized=0, is_64bit=False, integrity="",
-                 user="", process_name="", image_path="", command_line="", company="", version="", description=""):
-        self.pid = pid
-        self.parent_pid = parent_pid
-        self.authentication_id = authentication_id
-        self.session = session
-        self.virtualized = bool(virtualized)
-        self.is_64bit = bool(is_64bit)
-        self.integrity = integrity
-        self.user = user
-        self.process_name = process_name
-        self.image_path = image_path
-        self.command_line = command_line
-        self.company = company
+    def __init__(self, base_address=0, size=0, path="", version="", company="", description="", timestamp=0):
+        self.base_address = base_address
+        self.size = size
+        self.path = path
         self.version = version
+        self.company = company
         self.description = description
+        self.timestamp = timestamp
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -38,12 +32,54 @@ class Process(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "\"{}\", {}".format(self.process_name, self.pid)
+        return "\"{}\", address={}, size={}".format(self.path, hex(self.base_address), hex(self.size))
+
+    def __repr__(self):
+        return "Module({}, {}, \"{}\", \"{}\", \"{}\", \"{}\", {})" \
+            .format(self.base_address, self.size, self.path, self.version, self.company,
+                    self.description, self.timestamp)
+
+
+class Process(object):
+    """Information about a process in the system
+    """
+
+    def __init__(self, pid=0, parent_pid=0, authentication_id=0, session=0, virtualized=0, is_process_64bit=False,
+                 integrity="", user="", process_name="", image_path="", command_line="", company="", version="",
+                 description="", start_time=None, end_time=None, modules=None):
+        self.pid = pid
+        self.parent_pid = parent_pid
+        self.authentication_id = authentication_id
+        self.session = session
+        self.virtualized = bool(virtualized)
+        self.is_process_64bit = bool(is_process_64bit)
+        self.integrity = integrity
+        self.user = user
+        self.process_name = process_name
+        self.image_path = image_path
+        self.command_line = command_line
+        self.company = company
+        self.version = version
+        self.description = description
+        self.start_time = start_time
+        self.end_time = end_time
+        self.modules = modules or []
+
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+        return "\"{}\", {}".format(self.image_path, self.pid)
 
     def __repr__(self):
         return "Process({}, {}, {}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")"\
             .format(self.pid, self.parent_pid, self.authentication_id, self.session, self.virtualized,
-                    self.is_64bit, self.integrity, self.user, self.process_name, self.image_path,
+                    self.is_process_64bit, self.integrity, self.user, self.process_name, self.image_path,
                     self.command_line, self.company, self.version, self.description)
 
 
@@ -116,7 +152,7 @@ class Event(object):
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
             Column.OPERATION: self.operation.replace('_', ' '),
-            Column.RESULT: ErrorCodeMessages.get(self.result, hex(self.result)),
+            Column.RESULT: get_error_message(self.result),
             Column.DETAIL: ", ".join("{}: {}".format(k, v) for k, v in self.details.items()),
             Column.SEQUENCE: 'n/a',  # They do it too
             Column.COMPANY: self.process.company,
@@ -129,7 +165,7 @@ class Event(object):
             Column.TID: str(self.tid),
             Column.RELATIVE_TIME: Event._strftime_relative_time((self.date - first_event_date).astype('O')),
             Column.DURATION:
-                Event._strftime_duration(self.duration.astype('O')) if ErrorCodeMessages[self.result] != "" else "",
+                Event._strftime_duration(self.duration.astype('O')) if get_error_message(self.result) != "" else "",
             Column.TIME_OF_DAY: Event._strftime_date(self.date, False, True),
             Column.VERSION: self.process.version,
             Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
@@ -140,8 +176,8 @@ class Event(object):
             Column.INTEGRITY: self.process.integrity,
             Column.CATEGORY: self.category,
             Column.PARENT_PID: str(self.process.parent_pid),
-            Column.ARCHITECTURE: "64-bit" if self.process.is_64bit else "32-bit",
+            Column.ARCHITECTURE: "64-bit" if self.process.is_process_64bit else "32-bit",
             Column.COMPLETION_TIME:
                 Event._strftime_date(self.date + self.duration, False, True)
-                if ErrorCodeMessages[self.result] != "" else "",
+                if get_error_message(self.result) != "" else "",
         }

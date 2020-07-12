@@ -90,10 +90,20 @@ For the raw binary format of PMC files you can refer to [configuration_format.py
 >>> pml_reader = ProcmonLogsReader(f)
 >>> len(pml_reader)  # number of logs
 53214
->>> first_log = next(pml_reader)  # reading the next log entry
->>> first_log
+
+>>> first_event = next(pml_reader)  # reading the next event in the log
+>>> first_event
 Event("dwm.exe", 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:10.775242900, 0, "", "HKCU\Software\Microsoft\Windows\DWM\ColorPrevalence", {})
->>> first_log.stacktrace  # list of the stack frames addresses from the event
+
+>>> print(first_event.process)  #  Accessing the process of the event
+"C:\Windows\system32\dwm.exe", 932
+>>> for module in first_event.process.modules[:3]:
+...     print(module)  # printing information about some modules
+"C:\Windows\system32\dwm.exe", address=0x7ff6fa980000, size=0x18000
+"C:\Windows\system32\d3d10warp.dll", address=0x7fff96700000, size=0x76c000
+"C:\Windows\system32\wuceffects.dll", address=0x7fff9a920000, size=0x3f000
+
+>>> first_event.stacktrace  # get a list of the stack frames addresses from the event
 [18446735291098361031, 18446735291098336505, 18446735291095097155, 140736399934388, 140736346856333, 140736346854333, 140698742953668, 140736303659045, 140736303655429, 140736303639145, 140736303628747, 140736303625739, 140736303693867, 140736303347333, 140736303383760, 140736303385017, 140736398440420, 140736399723393]
 >>>
 ```

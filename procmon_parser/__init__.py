@@ -79,7 +79,8 @@ class ProcmonLogsReader(object):
 
     def __read_process_table(self):
         self._stream.seek(self._header.process_table_offset)
-        raw_process_table = ProcessTable.parse_stream(self._stream, strings_table=self._strings_table)
+        raw_process_table = ProcessTable.parse_stream(self._stream, is_64bit=self._header.is_64bit,
+                                                      strings_table=self._strings_table)
         return dict([element.process for element in raw_process_table.processes])
 
     def __read_hosts_and_ports_table(self):
@@ -105,3 +106,6 @@ class ProcmonLogsReader(object):
 
     def __len__(self):
         return self._number_of_events
+
+    def processes(self):
+        return list(self._process_table.values())

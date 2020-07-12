@@ -3,13 +3,14 @@ Definitions For the process monitor logs file formats.
 """
 
 from construct import Struct, Const, SymmetricAdapter, Int32ul, Int64ul, PaddedString, Bytes, Array, PrefixedArray, \
-    Pointer, Tell, Switch, Error, Int16ul, Byte, Computed, ExprAdapter, Adapter, Rebuild, Pass, Enum
+    Pointer, Tell, Switch, Error, Int16ul, Byte, Computed, ExprAdapter, Adapter, Rebuild, Pass, Enum, \
+    ExprSymmetricAdapter
 from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, \
     ListAdapter, PVoid, Duration, CheckCustom
 from procmon_parser.logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
     FilesystemOperation
-from procmon_parser.logs import Process, Event
+from procmon_parser.logs import Module, Process, Event
 
 EventClassType = OriginalEnumAdapter(Int32ul, EventClass)
 ProcessOperationType = Enum(Int16ul, ProcessOperation)
@@ -17,10 +18,10 @@ RegistryOperationType = Enum(Int16ul, RegistryOperation)
 NetworkOperationType = Enum(Int16ul, NetworkOperation)
 ProfilingOperationType = Enum(Int16ul, ProfilingOperation)
 FilesystemOperationType = Enum(Int16ul, FilesystemOperation)
-StringIndex = ExprAdapter(Struct("string_index" / Int32ul), lambda obj, ctx: ctx._.strings_table[obj.string_index],
-                          lambda obj, ctx: ctx._.strings_table.index(obj))
-ProcessIndex = ExprAdapter(Struct("process_index" / Int32ul), lambda obj, ctx: ctx._.process_table[obj.process_index],
-                           lambda obj, ctx: ctx._.process_table.index(obj))
+StringIndex = ExprAdapter(Struct("string_index" / Int32ul), lambda obj, ctx: ctx.strings_table[obj.string_index],
+                          lambda obj, ctx: ctx.strings_table.index(obj))
+ProcessIndex = ExprAdapter(Struct("process_index" / Int32ul), lambda obj, ctx: ctx.process_table[obj.process_index],
+                           lambda obj, ctx: ctx.process_table.index(obj))
 
 SUPPORTED_VERSIONS = [9]
 
@@ -45,7 +46,7 @@ The header of the PML file.
     "events_offsets_array_offset" / Int64ul,
     "process_table_offset" / Int64ul,
     "strings_table_offset" / Int64ul,
-    "unknown_table_offset" / Int64ul,
+    "unknown_table_offset" / Int64ul * "!!Unknown field!!",
     "reserved2" / Int64ul * "!!Unknown field!!",
     "reserved3" / Bytes(0x46) * "!!Unknown field!!",
     "reserved4" / Bytes(0xd6) * "!!Unknown field!!",
@@ -78,9 +79,36 @@ The table of all the strings needed for the logs.
     )
 )
 
+
+RawModuleStruct = """
+Struct that describes a loaded module in a process (or system process)
+""" * Struct(
+    "offset" / Tell,
+    "is_64bit" / Computed(lambda ctx: ctx._._.is_64bit),  # keep this in order to use PVoid
+    "strings_table" / Computed(lambda ctx: ctx._._.strings_table),  # keep the reference to the strings table
+    "reserved1" / PVoid * "!!Unknown field!!",
+    "base_address" / PVoid,
+    "size" / Int32ul,
+    "path" / StringIndex,
+    "version" / StringIndex,
+    "company" / StringIndex,
+    "description" / StringIndex,
+    "timestamp" / Int32ul,
+    "reserved2" / Int64ul * "!!Unknown field!!",
+    "reserved3" / Int64ul * "!!Unknown field!!",
+    "unknown_time" / Filetime * "!!Unknown field!!",
+)
+
+
+ModuleStruct = ExprSymmetricAdapter(
+    RawModuleStruct,
+    lambda obj, ctx: Module(base_address=obj.base_address, size=obj.size, path=obj.path, version=obj.version,
+                            company=obj.company, description=obj.company, timestamp=obj.timestamp))
+
 RawProcessStruct = """
 Struct that describes a process.
 """ * Struct(
+    "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # keep this in order to use PVoid
     "strings_table" / Computed(lambda ctx: ctx._.strings_table),  # keep the reference to the strings table
     "process_index" / Int32ul,
     "process_id" / Int32ul,
@@ -88,9 +116,11 @@ Struct that describes a process.
     "reserved1" / Int32ul * "!!Unknown field!!",
     "authentication_id" / Int64ul,
     "session" / Int32ul,
-    "reserved3" / Array(5, Int32ul) * "!!Unknown field!!",
+    "reserved3" / Int32ul * "!!Unknown field!!",
+    "start_time" / Filetime,
+    "end_time" / Filetime,
     "virtualized" / Int32ul,
-    "is_64bit" / Int32ul,
+    "is_process_64bit" / Int32ul,
     "integrity" / StringIndex,
     "user" / StringIndex,
     "process_name" / StringIndex,
@@ -99,26 +129,21 @@ Struct that describes a process.
     "company" / StringIndex,
     "version" / StringIndex,
     "description" / StringIndex,
-    "reserved4" / Array(5, Int32ul) * "!!Unknown field!!",
+    "reserved4" / PVoid * "!!Unknown field!!",
+    "reserved5" / Int64ul * "!!Unknown field!!",
+    "modules" / PrefixedArray(Int32ul, ModuleStruct)
 )
 
 
-class ProcessStructAdapter(Adapter):
+class ProcessStructAdapter(SymmetricAdapter):
     def _decode(self, obj, context, path):
         return obj.process_index, Process(pid=obj.process_id, parent_pid=obj.parent_process_id,
                                           authentication_id=obj.authentication_id, session=obj.session,
-                                          virtualized=obj.virtualized, is_64bit=obj.is_64bit,
+                                          virtualized=obj.virtualized, is_process_64bit=obj.is_process_64bit,
                                           integrity=obj.integrity, user=obj.user, process_name=obj.process_name,
                                           image_path=obj.image_path, command_line=obj.command_line, company=obj.company,
-                                          version=obj.version, description=obj.description)
-
-    def _encode(self, obj, context, path):
-        return {"process_index": obj[0], "process_id": obj[1].pid, "parent_process_id": obj[1].parent_process_id,
-                "authentication_id": obj[1].authentication_id, "session": obj[1].session,
-                "virtualized": obj[1].virtualized, "is_64bit": obj[1].is_64bit, "integrity": obj[1].integrity,
-                "user": obj[1].user, "process_name": obj[1].process_name, "image_path": obj[1].image_path,
-                "command_line": obj[1].command_line, "company": obj[1].company, "version": obj[1].version,
-                "description": obj[1].description}
+                                          version=obj.version, description=obj.description, start_time=obj.start_time,
+                                          end_time=obj.end_time, modules=obj.modules)
 
 
 ProcessStruct = ProcessStructAdapter(RawProcessStruct)
@@ -131,6 +156,7 @@ The table of all the processes that the events in the logs come from.
     "processes" / Array(
         lambda this: this.count,
         Struct(
+            "is_64bit" / Computed(lambda ctx: ctx._._.is_64bit),  # keep this in order to use PVoid
             "strings_table" / Computed(lambda ctx: ctx._._.strings_table),  # keep the reference to the string table
             "offset" / Int32ul,
             "process" / Pointer(lambda this: this._.table_offset + this.offset, ProcessStruct)
@@ -169,7 +195,7 @@ RawEventStruct = """
 The generic structure that represents a single event of every event class 
 """ * Struct(
     "offset" / Tell,
-    "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # we keep this in order to use PVoid
+    "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # keep this in order to use PVoid
     "process_table" / Computed(lambda ctx: ctx._.process_table),  # keep reference to processes table
     "process" / ProcessIndex,
     "thread_id" / Int32ul,

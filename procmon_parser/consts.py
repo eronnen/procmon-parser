@@ -311,7 +311,7 @@ class FilesystemLockUnlockOperation(enum.IntEnum):
     UnlockFileByKey = 0x4  # IRP_MJ_LOCK_CONTROL, FASTIO_UNLOCK_ALL_BY_KEY
 
 
-ErrorCodeMessages = {
+_ErrorCodeMessages = {
     0: 'SUCCESS',
     0x103: '',
     0x104: 'REPARSE',
@@ -460,3 +460,6 @@ ErrorCodeMessages = {
     0xc01c0004: 'FAST IO DISALLOWED',
 }
 
+
+def get_error_message(error_value):
+    return _ErrorCodeMessages.get(error_value, hex(error_value))
