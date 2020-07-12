@@ -38,7 +38,7 @@ class Process(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "{}, {}".format(self.process_name, self.pid)
+        return "\"{}\", {}".format(self.process_name, self.pid)
 
     def __repr__(self):
         return "Process({}, {}, {}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")"\
@@ -54,9 +54,9 @@ class Event(object):
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
         self.operation = operation
-        self.duration = duration
         self.date = date
         self.result = result
+        self.duration = duration
         self.stacktrace = stacktrace
         self.category = category
         self.path = path
@@ -81,15 +81,16 @@ class Event(object):
                     self.date, self.result, self.category, self.path, self.details)
 
     @staticmethod
-    def _strftime_date(date, full_date=True):
+    def _strftime_date(date, show_day=True, show_nanoseconds=False):
         nanoseconds = int(date.astype('O') % int(1e9))
-        try:
-            d = datetime.datetime.utcfromtimestamp(date.astype('O') / int(1e9))  # Procmon prints it in local time actually
-        except OSError:
-            # Procmon is stupid sometimes and there is a garbage value as the duration
-            return ""
-        time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(nanoseconds // 100)
-        if not full_date:
+        d = datetime.datetime.utcfromtimestamp(date.astype('O') / int(1e9))  # Procmon prints it in local time actually
+
+        if show_nanoseconds:
+            time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(nanoseconds // 100)
+        else:
+            time_of_day = d.strftime("%I:%M:%S %p").lstrip('0')
+
+        if not show_day:
             return time_of_day
         day = d.strftime("%m/%d/%Y ").lstrip('0').replace('/0', '/')
         return day + time_of_day
@@ -110,31 +111,37 @@ class Event(object):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
         """
         first_event_date = first_event_date if first_event_date else self.date
-        return {Column.DATE_AND_TIME: Event._strftime_date(self.date),
-                Column.PROCESS_NAME: self.process.process_name,
-                Column.PID: str(self.process.pid),
-                Column.OPERATION: self.operation.replace('_', ' '),
-                Column.RESULT: ErrorCodeMessages.get(self.result, hex(self.result)),
-                Column.DETAIL: ", ".join("{}: {}".format(k, v) for k, v in self.details.items()),
-                Column.SEQUENCE: 'n/a',
-                Column.COMPANY: self.process.company,
-                Column.DESCRIPTION: self.process.description,
-                Column.COMMAND_LINE: self.process.command_line,
-                Column.USER: self.process.user,
-                Column.IMAGE_PATH: self.process.image_path,
-                Column.SESSION: self.process.session,
-                Column.PATH: self.path,
-                Column.TID: str(self.tid),
-                Column.RELATIVE_TIME: Event._strftime_relative_time((self.date - first_event_date).astype('O')),
-                Column.DURATION: Event._strftime_duration(self.duration.astype('O')),
-                Column.TIME_OF_DAY: Event._strftime_date(self.date, False),
-                Column.VERSION: self.process.version,
-                Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
-                Column.AUTHENTICATION_ID: self.process.authentication_id,
-                Column.VIRTUALIZED: self.process.virtualized,
-                Column.INTEGRITY: self.process.integrity,
-                Column.CATEGORY: self.category,
-                Column.PARENT_PID: self.process.parent_pid,
-                Column.ARCHITECTURE: "64-bit" if self.process.is_64bit else "32-bit",
-                Column.COMPLETION_TIME: Event._strftime_date(self.date + self.duration, False),
-                }
+        return {
+            Column.DATE_AND_TIME: Event._strftime_date(self.date, True, False),
+            Column.PROCESS_NAME: self.process.process_name,
+            Column.PID: str(self.process.pid),
+            Column.OPERATION: self.operation.replace('_', ' '),
+            Column.RESULT: ErrorCodeMessages.get(self.result, hex(self.result)),
+            Column.DETAIL: ", ".join("{}: {}".format(k, v) for k, v in self.details.items()),
+            Column.SEQUENCE: 'n/a',  # They do it too
+            Column.COMPANY: self.process.company,
+            Column.DESCRIPTION: self.process.description,
+            Column.COMMAND_LINE: self.process.command_line,
+            Column.USER: self.process.user,
+            Column.IMAGE_PATH: self.process.image_path,
+            Column.SESSION: str(self.process.session),
+            Column.PATH: self.path,
+            Column.TID: str(self.tid),
+            Column.RELATIVE_TIME: Event._strftime_relative_time((self.date - first_event_date).astype('O')),
+            Column.DURATION:
+                Event._strftime_duration(self.duration.astype('O')) if ErrorCodeMessages[self.result] != "" else "",
+            Column.TIME_OF_DAY: Event._strftime_date(self.date, False, True),
+            Column.VERSION: self.process.version,
+            Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
+            Column.AUTHENTICATION_ID:
+                "{:08x}:{:08x}".format(self.process.authentication_id >> 32,
+                                       self.process.authentication_id & 0xFFFFFFFF),
+            Column.VIRTUALIZED: str(self.process.virtualized),
+            Column.INTEGRITY: self.process.integrity,
+            Column.CATEGORY: self.category,
+            Column.PARENT_PID: str(self.process.parent_pid),
+            Column.ARCHITECTURE: "64-bit" if self.process.is_64bit else "32-bit",
+            Column.COMPLETION_TIME:
+                Event._strftime_date(self.date + self.duration, False, True)
+                if ErrorCodeMessages[self.result] != "" else "",
+        }

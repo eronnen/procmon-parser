@@ -16,10 +16,6 @@ The goals of `procmon-parser` are:
 reduce the size of the log file over time as Procmon captures millions of events.
 * Parsing **PML** files (limited support) - making it possible to directly load the raw **PML** file into convenient python objects
 instead of having to convert the file to CSV/XML formats prior to loading.
- 
-
-### Supported Procmon versions
-3.4.\*, 3.5.\*
 
 
 ## PMC (Process Monitor Configuration) Parser
@@ -92,17 +88,21 @@ For the raw binary format of PMC files you can refer to [configuration_format.py
 >>> from procmon_parser import ProcmonLogsReader
 >>> f = open("LogFile.PML", "rb")
 >>> pml_reader = ProcmonLogsReader(f)
->>> first_log = next(pml_reader)  # reading the next log entry
->>> first_log
-Event(dwm.exe, 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:10.775242900, 0, "", "HKCU\Software\Microsoft\Windows\DWM\ColorPrevalence", {})
 >>> len(pml_reader)  # number of logs
 53214
+>>> first_log = next(pml_reader)  # reading the next log entry
+>>> first_log
+Event("dwm.exe", 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:10.775242900, 0, "", "HKCU\Software\Microsoft\Windows\DWM\ColorPrevalence", {})
+>>> first_log.stacktrace  # list of the stack frames addresses from the event
+[18446735291098361031, 18446735291098336505, 18446735291095097155, 140736399934388, 140736346856333, 140736346854333, 140698742953668, 140736303659045, 140736303655429, 140736303639145, 140736303628747, 140736303625739, 140736303693867, 140736303347333, 140736303383760, 140736303385017, 140736398440420, 140736399723393]
 >>>
 ```
 
 ### File Format
 
 For the raw binary format of PML files you can refer to [logs_format.py](procmon_parser/logs_format.py) and [logs_details_format.py](procmon_parser/logs_details_format.py).
+
+Currently the parser can handle PML files saved by *Procmon.exe* of versions 3.4.0 or higher.
 
 ### Unsupported features
 
@@ -111,6 +111,10 @@ The PML format is very complex so there are some features that are not supported
 - [ ] Detail column is not fully supported for all operation types.
 
 Pull requests to support these missing features are very welcome :)
+
+### Tests
+
+To test that the parser works as expected, There are two fairly large PML files, on Windows 7 32 bit and Windows 10 64 bit, 
 
 ## Contributing
 

@@ -63,6 +63,8 @@ FixedNullTerminatedUTF16String = Struct(  # I don't use PascalString because it'
 
 class FiletimeAdapter(Adapter):
     def _decode(self, obj, context, path):
+        if 0 == obj:
+            return None  # 0 is not really a date
         secs = int(obj // int(1e7))
         nanosecs = int(obj - int(secs * int(1e7))) * 100
         return datetime64('1601-01-01') + timedelta64(secs, 's') + timedelta64(nanosecs, 'ns')
