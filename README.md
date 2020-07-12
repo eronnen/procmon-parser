@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.com/eronnen/procmon-parser.svg?branch=master&service=github)](https://travis-ci.com/eronnen/procmon-parser)
 [![Coverage Status](https://coveralls.io/repos/github/eronnen/procmon-parser/badge.svg?branch=master&service=github)](https://coveralls.io/github/eronnen/procmon-parser?branch=master&service=github)
+[![PyPI version](https://badge.fury.io/py/procmon-parser.svg)](https://badge.fury.io/py/procmon-parser)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/procmon-parser)
 
 Procmon (https://docs.microsoft.com/en-us/sysinternals/downloads/procmon) is a very powerful monitoring tool for Windows,
 capable of capturing file system, registry, process/thread and network activity. 
