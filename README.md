@@ -1,5 +1,7 @@
 # Parsing Procmon files with Python
 
+[![Build Status](https://travis-ci.com/eronnen/procmon-parser.svg?branch=master)](https://travis-ci.com/eronnen/procmon-parser)
+
 Procmon (https://docs.microsoft.com/en-us/sysinternals/downloads/procmon) is a very powerful monitoring tool for Windows,
 capable of capturing file system, registry, process/thread and network activity. 
 
@@ -76,7 +78,7 @@ and a value. The known record options are:
 * `FilterRules` - a list of filter rules that can be used to show only interesting events.
 * `HighlightRules`
 
-For the raw binary format of **PMC** files you can refer to [configuration_format.py](procmon_parser/configuration_format.py).
+For the raw binary format of PMC files you can refer to [configuration_format.py](procmon_parser/configuration_format.py).
 
 ## PML (Process Monitor Log) Parser
 
@@ -97,11 +99,11 @@ Event(dwm.exe, 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:10
 
 ### File Format
 
-For the raw binary format of **PML** files you can refer to [logs_format.py](procmon_parser/logs_format.py) and [logs_details_format.py](procmon_parser/logs_details_format.py).
+For the raw binary format of PML files you can refer to [logs_format.py](procmon_parser/logs_format.py) and [logs_details_format.py](procmon_parser/logs_details_format.py).
 
 ### Unsupported features
 
-The **PML** format is very complex so there are some features that are not supported yet:
+The PML format is very complex so there are some features that are not supported yet:
 - [ ] Reading logs from multiple related PML files.
 - [ ] Detail column is not fully supported for all operation types.
 
