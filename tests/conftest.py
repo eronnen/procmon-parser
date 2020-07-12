@@ -3,6 +3,15 @@ import os
 import pytest
 import zlib
 
+from io import StringIO, BytesIO
+from six import PY2
+from procmon_parser import ProcmonLogsReader
+
+if PY2:
+    from unicodecsv import DictReader
+else:
+    from csv import DictReader
+
 
 RESOURCES_DIRECTORY = os.path.join(os.path.dirname(__file__), "resources")
 
@@ -29,6 +38,30 @@ def pml_logs_64bit():
 def csv_logs_64bit():
     with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests64bitUTCCSV"), "rb") as f:
         return zlib.decompress(f.read()).decode('utf-16le')  # I converted the csv file to UTF-16 from windows-1252
+
+
+def get_log_readers(csv_logs, pml_logs):
+    pml_stream = BytesIO(pml_logs)
+    pml_reader = ProcmonLogsReader(pml_stream)
+    if PY2:
+        csv_logs_utf8 = csv_logs.encode('utf-8')  # I only found a csv library that works for UTF-8
+        csv_stream = BytesIO(csv_logs_utf8)
+        csv_reader = DictReader(csv_stream, encoding='utf-8')
+    else:
+        csv_stream = StringIO(csv_logs)
+        csv_reader = DictReader(csv_stream)
+
+    return csv_reader, pml_reader
+
+
+@pytest.fixture(scope='function')
+def log_readers_32bit(csv_logs_32bit, pml_logs_32bit):
+    return get_log_readers(csv_logs_32bit, pml_logs_32bit)
+
+
+@pytest.fixture(scope='function')
+def log_readers_64bit(csv_logs_64bit, pml_logs_64bit):
+    return get_log_readers(csv_logs_64bit, pml_logs_64bit)
 
 
 @pytest.fixture()

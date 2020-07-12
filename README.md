@@ -82,15 +82,28 @@ For the raw binary format of **PMC** files you can refer to [configuration_forma
 
 ### Usage
 
+`procmon-parser` exports a `ProcmonLogsReader` class for reading logs directly from a PML file:
+```python
+>>> from procmon_parser import ProcmonLogsReader
+>>> f = open("LogFile.PML", "rb")
+>>> pml_reader = ProcmonLogsReader(f)
+>>> first_log = next(pml_reader)  # reading the next log entry
+>>> first_log
+Event(dwm.exe, 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:10.775242900, 0, "", "HKCU\Software\Microsoft\Windows\DWM\ColorPrevalence", {})
+>>> len(pml_reader)  # number of logs
+53214
+>>>
+```
+
 ### File Format
 
 For the raw binary format of **PML** files you can refer to [logs_format.py](procmon_parser/logs_format.py) and [logs_details_format.py](procmon_parser/logs_details_format.py).
 
 ### Unsupported features
 
-There are some features of **PML** files that are not supported yet:
-- [ ] Same logs over separated PML files.
-- [ ] Detail column is not fully supported for all event types.
+The **PML** format is very complex so there are some features that are not supported yet:
+- [ ] Reading logs from multiple related PML files.
+- [ ] Detail column is not fully supported for all operation types.
 
 Pull requests to support these missing features are very welcome :)
 

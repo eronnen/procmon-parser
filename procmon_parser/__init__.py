@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from io import BytesIO
+from six import PY2
 from construct import StreamError
 from procmon_parser.configuration_format import Record
 from procmon_parser.logs_format import Header, StringsTable, ProcessTable, HostsAndPortsTable, EventsOffsetArray, \
@@ -98,6 +99,9 @@ class ProcmonLogsReader(object):
         self._stream.seek(self._events_offsets[current_index])
         return EventStruct.parse_stream(self._stream, is_64bit=self._header.is_64bit, process_table=self._process_table,
                                         hosts_table=self._hosts_table, ports_table=self._ports_table)
+
+    if PY2:
+        next = __next__
 
     def __len__(self):
         return self._number_of_events
