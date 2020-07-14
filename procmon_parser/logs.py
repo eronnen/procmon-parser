@@ -5,7 +5,7 @@ Python types that procmon logs use
 import datetime
 from six import string_types
 from numpy import timedelta64
-from procmon_parser.consts import Column, EventClass, get_error_message
+from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation
 
 
 __all__ = ['Module', 'Process', 'Event']
@@ -138,10 +138,27 @@ class Event(object):
         return "{:02d}:{:02d}:{:02d}.{:07d}".format(secs // 3600, (secs // 60) % 60, secs % 60, nanosecs // 100)
 
     @staticmethod
-    def _strftime_duration(duration_nanosecs):
+    def _strftime_duration(duration):
+        duration_nanosecs = duration.astype('O')
         secs = int(duration_nanosecs // int(1e9))
         nanosecs = int(duration_nanosecs % int(1e9))
         return "{}.{:07d}".format(secs, nanosecs // 100)
+
+    def _get_compatible_csv_detail_column(self):
+        """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
+        """
+        if not self.details:
+            return ""
+        details = self.details
+        if self.operation == ProcessOperation.Load_Image.name:
+            details["Image Base"] = hex(details["Image Base"])
+            details["Image Size"] = hex(details["Image Size"])
+        elif self.operation == ProcessOperation.Thread_Exit.name:
+            details["User Time"] = Event._strftime_duration(details["User Time"])
+            details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
+        elif self.operation == ProcessOperation.Process_Start.name:
+            details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
+        return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 
     def get_compatible_csv_info(self, first_event_date=None):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
@@ -153,7 +170,7 @@ class Event(object):
             Column.PID: str(self.process.pid),
             Column.OPERATION: self.operation.replace('_', ' '),
             Column.RESULT: get_error_message(self.result),
-            Column.DETAIL: ", ".join("{}: {}".format(k, v) for k, v in self.details.items()),
+            Column.DETAIL: self._get_compatible_csv_detail_column(),
             Column.SEQUENCE: 'n/a',  # They do it too
             Column.COMPANY: self.process.company,
             Column.DESCRIPTION: self.process.description,
@@ -165,7 +182,7 @@ class Event(object):
             Column.TID: str(self.tid),
             Column.RELATIVE_TIME: Event._strftime_relative_time((self.date - first_event_date).astype('O')),
             Column.DURATION:
-                Event._strftime_duration(self.duration.astype('O')) if get_error_message(self.result) != "" else "",
+                Event._strftime_duration(self.duration) if get_error_message(self.result) != "" else "",
             Column.TIME_OF_DAY: Event._strftime_date(self.date, False, True),
             Column.VERSION: self.process.version,
             Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),

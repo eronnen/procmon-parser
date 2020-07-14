@@ -252,7 +252,7 @@ RawProcessStartDetailsStruct = Struct(
     "environment_size" / Int32ul,
     "command_line" / DetailString(lambda this: this.command_line_info),
     "current_directory" / DetailString(lambda this: this.current_directory_info),
-    "environment" / SizedUTF16MultiSz(lambda this: this.environment_size),
+    "environment" / SizedUTF16MultiSz(lambda this: this.environment_size * 2),
 )
 
 ProcessStartDetails = ExprAdapter(
@@ -261,7 +261,7 @@ ProcessStartDetails = ExprAdapter(
                                   details=OrderedDict([("Parent PID", obj.parent_pid),
                                                        ("Command line", obj.command_line),
                                                        ("Current directory", obj.current_directory),
-                                                       ("Environment", "\r\n;\t" + "\r\n;\t".join(obj.environment))])),
+                                                       ("Environment", obj.environment)])),
     lambda obj, ctx: None  # building process create detail structure is not supported yet
 )
 

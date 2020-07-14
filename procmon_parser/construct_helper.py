@@ -67,6 +67,8 @@ class FiletimeAdapter(Adapter):
             return None  # 0 is not really a date
         secs = int(obj // int(1e7))
         nanosecs = int(obj - int(secs * int(1e7))) * 100
+
+        # I use numpy's datetime64 instead of datetime.datetime because filetime have 100 nanoseconds precision.
         return datetime64('1601-01-01') + timedelta64(secs, 's') + timedelta64(nanosecs, 'ns')
 
     def _encode(self, obj, context, path):
@@ -100,7 +102,7 @@ UTF16MultiSz = ExprAdapter(
 def SizedUTF16MultiSz(size_func):
     return ExprAdapter(
         FixedSized(size_func, GreedyRange(CString("UTF_16_le"))),
-        lambda obj, ctx: list(obj[:-1]),  # last element is the null
+        lambda obj, ctx: list(obj),  # last element is already removed by GreedyRange
         lambda obj, ctx: obj + ['']
     )
 
