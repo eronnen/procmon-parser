@@ -107,5 +107,35 @@ class ProcmonLogsReader(object):
     def __len__(self):
         return self._number_of_events
 
+    def _get_os_name(self):
+        windows_names = {
+            (6, 0): "Windows Vista",
+            (6, 1): "Windows 7",
+            (6, 2): "Windows 8",
+            (6, 3): "Windows 8.1",
+            (10, 0): "Windows 10",
+        }
+
+        windows_name = windows_names[(self._header.windows_major_number, self._header.windows_minor_number)]
+        if self._header.service_pack_name:
+            windows_name += ", {}".format(self._header.service_pack_name)
+
+        return "{} (build {}.{})".format(windows_name, self._header.windows_build_number,
+                                         self._header.windows_build_number_after_decimal_point)
+
     def processes(self):
+        """Return a list of all the known processes in the log file
+        """
         return list(self._process_table.values())
+
+    def system_details(self):
+        """Return the system details of the computer which captured the logs (like Tools -> System Details in Procmon)
+        """
+        return {
+            "Computer Name": self._header.computer_name,
+            "Operating System": self._get_os_name(),
+            "System Root": self._header.system_root,
+            "Logical Processors": self._header.number_of_logical_processors,
+            "Memory (RAM)": "{} GB".format((self._header.ram_memory_size / (1024.0 ** 3)) // 0.01 / 100),
+            "System Type": "64-bit" if self._header.is_64bit else "32-bit"
+        }
