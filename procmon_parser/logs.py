@@ -32,7 +32,8 @@ class Module(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "\"{}\", address={}, size={}".format(self.path, hex(self.base_address), hex(self.size))
+        return "\"{}\", address={}, size={}".format(
+            self.path, "0x{:x}".format(self.base_address), "0x{:x}".format(self.size))
 
     def __repr__(self):
         return "Module({}, {}, \"{}\", \"{}\", \"{}\", \"{}\", {})" \
@@ -108,8 +109,9 @@ class Event(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "File offset=0x{:x}, Process Name={}, Pid={}, Operation={}, Path=\"{}\", Details={}".format(
-            self._file_offset, self.process.process_name, self.process.pid, self.operation, self.path, self.details)
+        return "File offset=0x{:x}, Process Name={}, Pid={}, Operation={}, Path=\"{}\", Time={}".format(
+            self._file_offset, self.process.process_name, self.process.pid, self.operation, self.path,
+            self._strftime_date(self.date, True, True))
 
     def __repr__(self):
         return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \
@@ -119,7 +121,7 @@ class Event(object):
     @staticmethod
     def _strftime_date(date, show_day=True, show_nanoseconds=False):
         nanoseconds = int(date.astype('O') % int(1e9))
-        d = datetime.datetime.utcfromtimestamp(date.astype('O') / int(1e9))  # Procmon prints it in local time actually
+        d = datetime.datetime.utcfromtimestamp(int(date.astype('O') / int(1e9)))  # Procmon prints it in local time
 
         if show_nanoseconds:
             time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(nanoseconds // 100)
@@ -159,10 +161,10 @@ class Event(object):
         """
         if not self.details:
             return ""
-        details = self.details
+        details = self.details.copy()
         if self.operation == ProcessOperation.Load_Image.name:
-            details["Image Base"] = hex(details["Image Base"])
-            details["Image Size"] = hex(details["Image Size"])
+            details["Image Base"] = "0x{:x}".format(details["Image Base"])
+            details["Image Size"] = "0x{:x}".format(details["Image Size"])
         elif self.operation == ProcessOperation.Thread_Exit.name:
             details["User Time"] = Event._strftime_duration(details["User Time"])
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])

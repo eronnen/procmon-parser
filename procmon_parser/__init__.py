@@ -89,6 +89,11 @@ class ProcmonLogsReader(object):
         return {h.host_ip: h.hostname.string for h in raw_hosts_and_ports_table.hosts}, \
                {(p.port_number, bool(p.is_tcp)): p.port.string for p in raw_hosts_and_ports_table.ports}
 
+    def __parse_event_at_offset(self, offset):
+        self._stream.seek(offset)
+        return EventStruct.parse_stream(self._stream, is_64bit=self._header.is_64bit, process_table=self._process_table,
+                                        hosts_table=self._hosts_table, ports_table=self._ports_table)
+
     def __iter__(self):
         return self
 
@@ -97,12 +102,18 @@ class ProcmonLogsReader(object):
             raise StopIteration
         current_index = self._current_event_index
         self._current_event_index += 1
-        self._stream.seek(self._events_offsets[current_index])
-        return EventStruct.parse_stream(self._stream, is_64bit=self._header.is_64bit, process_table=self._process_table,
-                                        hosts_table=self._hosts_table, ports_table=self._ports_table)
+        return self[current_index]
 
     if PY2:
         next = __next__
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self.__parse_event_at_offset(offset) for offset in self._events_offsets[index]]
+        elif isinstance(index, int):
+            return self.__parse_event_at_offset(self._events_offsets[index])
+
+        raise TypeError("Bad index")
 
     def __len__(self):
         return self._number_of_events

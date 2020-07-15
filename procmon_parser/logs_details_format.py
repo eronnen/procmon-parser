@@ -8,7 +8,8 @@ from construct import Int8ul, Int32ul, Struct, PaddedString, FlagsEnum, IfThenEl
 from six import string_types
 from ipaddress import IPv4Address, IPv6Address
 
-from procmon_parser.construct_helper import PVoid, UTF16MultiSz, SizedUTF16MultiSz, Duration
+from procmon_parser.construct_helper import PVoid, UTF16MultiSz, SizedUTF16MultiSz, Duration, \
+    PaddedUTF16StringBestEffort
 from procmon_parser.consts import ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemQueryInformationOperation, FilesysemDirectoryControlOperation, \
     FilesystemSetInformationOperation, FilesystemPnpOperation, FilesystemQueryVolumeInformationOperation, \
@@ -57,7 +58,7 @@ def DetailString(detail_info_func):
     """
     return IfThenElse(lambda ctx: detail_info_func(ctx).is_ascii,
                       PaddedString(lambda ctx: detail_info_func(ctx).char_count, "ascii"),
-                      PaddedString(lambda ctx: detail_info_func(ctx).char_count * 2, "UTF_16_le"))
+                      PaddedUTF16StringBestEffort(lambda ctx: detail_info_func(ctx).char_count * 2))
 
 
 def fix_network_event_operation_name(obj, ctx):

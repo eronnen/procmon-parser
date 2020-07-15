@@ -75,8 +75,9 @@ def check_pml_equals_csv(csv_reader, pml_reader):
                 assert "<Unknown>" in pml_value  # Sometimes there are unknown sub operations
                 continue
             if pml_value != csv_value:
-                raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
-                    i+1, ColumnToOriginalName[column], pml_value, csv_value))
+                raise AssertionError(
+                    "Event {}, Column {}: PMl=\"{}\", CSV=\"{}\".\n PML Event: {}\nCSV Event: {}".format(
+                        i+1, ColumnToOriginalName[column], pml_value, csv_value, repr(pml_record), csv_record))
 
         for column in PARTIAL_SUPPORTED_COLUMNS:
             if csv_record[ColumnToOriginalName[Column.OPERATION]] != "<Unknown>":
@@ -87,8 +88,6 @@ def check_pml_equals_csv(csv_reader, pml_reader):
                 if pml_value != csv_value:
                     raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
                         i + 1, ColumnToOriginalName[column], pml_value, csv_value))
-
-    assert (i+1) == len(pml_reader)
 
 
 def test_pml_equals_csv_32bit(csv_reader_windows7_32bit, pml_reader_windows7_32bit):

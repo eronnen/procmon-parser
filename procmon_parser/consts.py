@@ -462,4 +462,4 @@ _ErrorCodeMessages = {
 
 
 def get_error_message(error_value):
-    return _ErrorCodeMessages.get(error_value, hex(error_value))
+    return _ErrorCodeMessages.get(error_value, "0x{:X}".format(error_value))

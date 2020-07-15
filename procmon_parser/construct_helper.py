@@ -1,6 +1,7 @@
 from numpy import datetime64, timedelta64, uint64
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
-    GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError, RepeatUntil, ExprAdapter, NullTerminated, Computed
+    GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError, RepeatUntil, ExprAdapter, NullTerminated, Computed, \
+    NullStripped
 
 
 # ===============================================================================
@@ -53,6 +54,20 @@ def FixedBytes(size_func):
     """At parse time parses a fixed sized byte array, and at build time builds the byte array with its given size.
     """
     return IfThenElse(lambda this: this._parsing, Bytes(size_func), GreedyBytes)
+
+
+class UTF16EncodedBestEffort(Adapter):
+    def _decode(self, obj, context, path):
+        return obj.decode("UTF-16le", "replace")
+
+    def _encode(self, obj, context, path):
+        if obj == u"":
+            return b""
+        return obj.encode("UTF-16le", "replace")
+
+
+def PaddedUTF16StringBestEffort(length):
+    return UTF16EncodedBestEffort(FixedSized(length, NullStripped(GreedyBytes, pad="\x00\x00")))
 
 
 FixedNullTerminatedUTF16String = Struct(  # I don't use PascalString because it's a null terminated string.
