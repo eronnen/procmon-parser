@@ -93,6 +93,7 @@ Currently the parser is only tested with PML files saved by *Procmon.exe* of ver
 ### Unsupported features
 
 The PML format is very complex so there are some features that are not supported yet:
+- [ ] Getting the IRP name of the operation.
 - [ ] Category column is not supported yet.
 - [ ] Detail column, which contains different information about each operation type, is supported only for some of the operations:
     - [x] Network operations 

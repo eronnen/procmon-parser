@@ -71,16 +71,16 @@ def check_pml_equals_csv(csv_reader, pml_reader):
         for column in SUPPORTED_COLUMNS:
             pml_value = pml_compatible_record[column]
             csv_value = csv_record[ColumnToOriginalName[column]]
+            if column == Column.OPERATION and csv_value == "<Unknown>":
+                assert "<Unknown>" in pml_value  # Sometimes there are unknown sub operations
+                continue
             if pml_value != csv_value:
-                if column == Column.OPERATION and csv_value == "<Unknown>":
-                    continue  # TODO: why there is "<Unknown>" here by the original procmon???
                 raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
                     i+1, ColumnToOriginalName[column], pml_value, csv_value))
 
         for column in PARTIAL_SUPPORTED_COLUMNS:
-            if csv_record[ColumnToOriginalName[Column.OPERATION]] == "<Unknown>":
-                continue  # TODO: why there is "<Unknown>" here by the original procmon???
-            assert pml_compatible_record[Column.OPERATION] == csv_record[ColumnToOriginalName[Column.OPERATION]]
+            if csv_record[ColumnToOriginalName[Column.OPERATION]] != "<Unknown>":
+                assert pml_compatible_record[Column.OPERATION] == csv_record[ColumnToOriginalName[Column.OPERATION]]
             if pml_compatible_record[Column.OPERATION] in PARTIAL_SUPPORTED_COLUMNS[column]:
                 pml_value = pml_compatible_record[column]
                 csv_value = csv_record[ColumnToOriginalName[column]]
