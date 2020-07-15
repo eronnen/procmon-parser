@@ -121,7 +121,7 @@ class Event(object):
     @staticmethod
     def _strftime_date(date, show_day=True, show_nanoseconds=False):
         nanoseconds = int(date.astype('O') % int(1e9))
-        d = datetime.datetime.utcfromtimestamp(int(date.astype('O') / int(1e9)))  # Procmon prints it in local time
+        d = datetime.datetime.utcfromtimestamp(int(date.astype('O') // int(1e9)))  # Procmon prints it in local time
 
         if show_nanoseconds:
             time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(nanoseconds // 100)
