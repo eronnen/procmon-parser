@@ -51,7 +51,7 @@ class Process(object):
         self.parent_pid = parent_pid
         self.authentication_id = authentication_id
         self.session = session
-        self.virtualized = bool(virtualized)
+        self.virtualized = virtualized
         self.is_process_64bit = bool(is_process_64bit)
         self.integrity = integrity
         self.user = user
@@ -144,6 +144,16 @@ class Event(object):
         nanosecs = int(duration_nanosecs % int(1e9))
         return "{}.{:07d}".format(secs, nanosecs // 100)
 
+    @staticmethod
+    def _get_bool_str(b):
+        if isinstance(b, bool):
+            return str(b)
+        if b == 0:
+            return str(False)
+        elif b == 1:
+            return str(True)
+        return "n/a"
+
     def _get_compatible_csv_detail_column(self):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
         """
@@ -189,7 +199,7 @@ class Event(object):
             Column.AUTHENTICATION_ID:
                 "{:08x}:{:08x}".format(self.process.authentication_id >> 32,
                                        self.process.authentication_id & 0xFFFFFFFF),
-            Column.VIRTUALIZED: str(self.process.virtualized),
+            Column.VIRTUALIZED: Event._get_bool_str(self.process.virtualized),
             Column.INTEGRITY: self.process.integrity,
             Column.CATEGORY: self.category,
             Column.PARENT_PID: str(self.process.parent_pid),

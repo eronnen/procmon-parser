@@ -148,26 +148,32 @@ QueryDirectoryDetails = ExprAdapter(
 )
 
 
+FilesystemSubOperationsTypes = {
+    FilesystemOperation.QueryVolumeInformation.name: FilesystemQueryVolumeInformationOperationType,
+    FilesystemOperation.SetVolumeInformation.name: FilesystemSetVolumeInformationOperationType,
+    FilesystemOperation.QueryInformationFile.name: FilesystemQueryInformationOperationType,
+    FilesystemOperation.SetInformationFile.name: FilesystemSetInformationOperationType,
+    FilesystemOperation.DirectoryControl.name: FilesystemDirectoryControlOperationType,
+    FilesystemOperation.PlugAndPlay.name: FilesystemPnpOperationType,
+    FilesystemOperation.LockUnlockFile.name: FilesystemLockUnlockOperationType,
+}
+
+
 def fix_filesystem_event_operation_name(obj, ctx):
     """Fixes the operation name if there is a sub operation
     """
     if isinstance(obj, string_types):
         ctx._.operation = obj
+    elif obj != 0 and ctx._.operation in FilesystemSubOperationsTypes.keys():
+        ctx._.operation = ctx._.operation + " <Unknown>"  # we got unknown sub operation
 
 
 RawFilesystemDetailsStruct = """
 The structure that holds the specific file system events details
 """ * Struct(
     "is_64bit" / Computed(lambda ctx: ctx._.is_64bit),  # we keep this in order to use PVoid
-    "sub_operation" / Switch(lambda ctx: ctx._.operation, {
-        FilesystemOperation.QueryVolumeInformation.name: FilesystemQueryVolumeInformationOperationType,
-        FilesystemOperation.SetVolumeInformation.name: FilesystemSetVolumeInformationOperationType,
-        FilesystemOperation.QueryInformationFile.name: FilesystemQueryInformationOperationType,
-        FilesystemOperation.SetInformationFile.name: FilesystemSetInformationOperationType,
-        FilesystemOperation.DirectoryControl.name: FilesystemDirectoryControlOperationType,
-        FilesystemOperation.PlugAndPlay.name: FilesystemPnpOperationType,
-        FilesystemOperation.LockUnlockFile.name: FilesystemLockUnlockOperationType,
-    }, Int8ul) * fix_filesystem_event_operation_name,
+    "sub_operation" / Switch(lambda ctx: ctx._.operation,
+                             FilesystemSubOperationsTypes, Int8ul) * fix_filesystem_event_operation_name,
     "reserved1" / Int8ul * "!!Unknown field!!",
     "reserved2" / Array(5, PVoid) * "!!Unknown field!!",
     "reserved3" / Bytes(0x16) * "!!Unknown field!!",
