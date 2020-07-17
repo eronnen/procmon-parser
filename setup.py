@@ -5,18 +5,19 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="procmon-parser",
-    version="0.2.3",
+    version="0.3.0",
     author="Ely Ronnen",
     author_email="elyronnen@gmail.com",
     description="Parser to Procmon configuration and log files formats",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/eronnen/procmon-parser.git",
-    download_url="https://github.com/eronnen/procmon-parser/archive/v0.2.0.tar.gz",
+    download_url="https://github.com/eronnen/procmon-parser/archive/v0.3.0.tar.gz",
     packages=setuptools.find_packages(),
     install_requires=[
         "enum34;python_version<'3.4'",
         "construct>=2.10.54",
+        "kaitaistruct @ git+https://github.com/kaitai-io/kaitai_struct_python_runtime.git",
         "six",
         "numpy",
         "ipaddress;python_version<'3'",

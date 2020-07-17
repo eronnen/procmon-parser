@@ -86,7 +86,7 @@ Event("dwm.exe", 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:
 
 ### File Format
 
-For the raw binary format of PML files you can refer to the [docs](docs/PML%20Format.md), or take a look at the source code in [logs_details_format.py](procmon_parser/logs_details_format.py).
+For the raw binary format of PML files you can refer to the [docs](docs/PML%20Format.md), or take a look at the source code in [construct_logs_format.py](procmon_parser/construct_logs_format.py).
 
 Currently the parser is only tested with PML files saved by *Procmon.exe* of versions v3.4.0 or higher.
 

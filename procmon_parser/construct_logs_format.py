@@ -7,10 +7,10 @@ from construct import Struct, Const, SymmetricAdapter, Int32ul, Int64ul, PaddedS
     ExprSymmetricAdapter
 from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, \
     ListAdapter, PVoid, Duration, CheckCustom
-from procmon_parser.logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
+from procmon_parser.construct_logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
     FilesystemOperation
-from procmon_parser.logs import Module, Process, Event
+from procmon_parser.logs import Module, Process, Event, PMLStructReader
 
 EventClassType = OriginalEnumAdapter(Int32ul, EventClass)
 ProcessOperationType = Enum(Int16ul, ProcessOperation)
@@ -244,7 +244,7 @@ class EventStructAdapter(Adapter):
         details = obj.details.details if obj.details else {}
         return Event(process=obj.process, tid=obj.thread_id, event_class=obj.event_class, operation=obj.operation,
                      duration=obj.duration, date=obj.date, result=obj.result,
-                     stacktrace=obj.stacktrace, category=category, path=path, details=details, file_offset=obj.offset)
+                     stacktrace=obj.stacktrace, category=category, path=path, details=details)
 
     def _encode(self, obj, context, path):
         return {"process": obj.process, "thread_id": obj.tid, "event_class": obj.event_class,
@@ -254,3 +254,46 @@ class EventStructAdapter(Adapter):
 
 
 EventStruct = EventStructAdapter(RawEventStruct)
+
+
+class PMLConstructReader(PMLStructReader):
+    def __init__(self, f):
+        super(PMLConstructReader, self).__init__(f)
+        self._header = Header.parse_stream(self._stream)
+        self._stream.seek(self._header.events_offsets_array_offset)
+        raw_event_offsets_array = EventsOffsetArray(self._header.number_of_events).parse_stream(self._stream)
+        self._events_offsets = [o.offset for o in raw_event_offsets_array]
+        self._stream.seek(self._header.strings_table_offset)
+        raw_strings_table = StringsTable.parse_stream(self._stream)
+        self._strings_table = [s.string.string for s in raw_strings_table.strings]
+        self._stream.seek(self._header.process_table_offset)
+        raw_process_table = ProcessTable.parse_stream(self._stream, is_64bit=self._header.is_64bit,
+                                                      strings_table=self._strings_table)
+        self._process_table = dict([element.process for element in raw_process_table.processes])
+        self._stream.seek(self._header.hosts_and_ports_tables_offset)
+        raw_hosts_and_ports_table = HostsAndPortsTable.parse_stream(self._stream)
+        self._hosts_table = {h.host_ip: h.hostname.string for h in raw_hosts_and_ports_table.hosts}
+        self._ports_table = {(p.port_number, bool(p.is_tcp)): p.port.string for p in raw_hosts_and_ports_table.ports}
+
+    @property
+    def header(self):
+        return self._header
+
+    @property
+    def events_offsets(self):
+        return self._events_offsets
+
+    def get_event_at_offset(self, offset):
+        before = self._stream.tell()
+        self._stream.seek(offset)
+        event = EventStruct.parse_stream(self._stream, is_64bit=self._header.is_64bit,
+                                         process_table=self._process_table, hosts_table=self._hosts_table,
+                                         ports_table=self._ports_table)
+        self._stream.seek(before)
+        return event
+
+    def processes(self):
+        """Return a list of all the known processes in the log file
+        """
+        return list(self._process_table.values())
+

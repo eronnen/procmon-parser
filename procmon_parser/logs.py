@@ -8,7 +8,7 @@ from numpy import timedelta64
 from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation
 
 
-__all__ = ['Module', 'Process', 'Event']
+__all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
 
 
 class Module(object):
@@ -86,7 +86,7 @@ class Process(object):
 
 class Event(object):
     def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=timedelta64(0, 'ns'), date=None,
-                 result=0, stacktrace=None, category=None, path=None, details=None, file_offset=0):
+                 result=0, stacktrace=None, category=None, path=None, details=None):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
@@ -98,7 +98,6 @@ class Event(object):
         self.category = category
         self.path = path
         self.details = details
-        self._file_offset = file_offset  # for debugging purposes :)
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -109,8 +108,8 @@ class Event(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "File offset=0x{:x}, Process Name={}, Pid={}, Operation={}, Path=\"{}\", Time={}".format(
-            self._file_offset, self.process.process_name, self.process.pid, self.operation, self.path,
+        return "Process Name={}, Pid={}, Operation={}, Path=\"{}\", Time={}".format(
+            self.process.process_name, self.process.pid, self.operation, self.path,
             self._strftime_date(self.date, True, True))
 
     def __repr__(self):
@@ -209,4 +208,65 @@ class Event(object):
             Column.COMPLETION_TIME:
                 Event._strftime_date(self.date + self.duration, False, True)
                 if get_error_message(self.result) != "" else "",
+        }
+
+
+class PMLStructReader(object):
+    def __init__(self, f):
+        self._stream = f
+
+    @property
+    def header(self):
+        raise NotImplementedError()
+
+    @property
+    def events_offsets(self):
+        raise NotImplementedError()
+
+    def get_event_at_offset(self, offset):
+        raise NotImplementedError()
+
+    @property
+    def number_of_events(self):
+        return self.header.number_of_events
+
+    def processes(self):
+        """Return a list of all the known processes in the log file
+        """
+        raise NotImplementedError()
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self.get_event_at_offset(offset) for offset in self.events_offsets[index]]
+        elif isinstance(index, int):
+            return self.get_event_at_offset(self.events_offsets[index])
+
+        raise TypeError("Bad index")
+
+    def _get_os_name(self):
+        windows_names = {
+            (6, 0): "Windows Vista",
+            (6, 1): "Windows 7",
+            (6, 2): "Windows 8",
+            (6, 3): "Windows 8.1",
+            (10, 0): "Windows 10",
+        }
+
+        windows_name = windows_names[(self.header.windows_major_number, self.header.windows_minor_number)]
+        if self.header.service_pack_name:
+            windows_name += ", {}".format(self.header.service_pack_name)
+
+        return "{} (build {}.{})".format(windows_name, self.header.windows_build_number,
+                                         self.header.windows_build_number_after_decimal_point)
+
+    def system_details(self):
+        """Return the system details of the computer which captured the logs (like Tools -> System Details in Procmon)
+        """
+        return {
+            "Computer Name": self.header.computer_name,
+            "Operating System": self._get_os_name(),
+            "System Root": self.header.system_root,
+            "Logical Processors": self.header.number_of_logical_processors,
+            "Memory (RAM)": "{} GB".format((self.header.ram_memory_size / (1024.0 ** 3)) // 0.01 / 100),
+            "System Type": "64-bit" if self.header.is_64bit else "32-bit"
         }
