@@ -5,11 +5,13 @@ Definitions For the process monitor logs file formats.
 from construct import Struct, Const, SymmetricAdapter, Int32ul, Int64ul, PaddedString, Bytes, Array, PrefixedArray, \
     Pointer, Tell, Switch, Error, Int16ul, Byte, Computed, ExprAdapter, Adapter, Rebuild, Pass, Enum, \
     ExprSymmetricAdapter
+
 from procmon_parser.construct_helper import FixedNullTerminatedUTF16String, OriginalEnumAdapter, Filetime, \
     ListAdapter, PVoid, Duration, CheckCustom
-from procmon_parser.construct_logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, ProcessDetails
-from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, ProfilingOperation, \
-    FilesystemOperation
+from procmon_parser.construct_logs_details_format import NetworkDetails, RegistryDetails, FilesystemDetails, \
+    ProcessDetails
+from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, NetworkOperation, \
+    ProfilingOperation, FilesystemOperation
 from procmon_parser.logs import Module, Process, Event, PMLStructReader
 
 EventClassType = OriginalEnumAdapter(Int32ul, EventClass)
@@ -86,7 +88,6 @@ The table of all the strings needed for the logs.
     )
 )
 
-
 RawModuleStruct = """
 Struct that describes a loaded module in a process (or system process)
 """ * Struct(
@@ -105,7 +106,6 @@ Struct that describes a loaded module in a process (or system process)
     "reserved3" / Int64ul * "!!Unknown field!!",
     "unknown_time" / Filetime * "!!Unknown field!!",
 )
-
 
 ModuleStruct = ExprSymmetricAdapter(
     RawModuleStruct,
@@ -222,8 +222,8 @@ The generic structure that represents a single event of every event class
     "stacktrace_depth" / Rebuild(Int16ul, lambda this: len(this.stacktrace)),
     CheckCustom(lambda this: this.stacktrace_depth <= 0x100, RuntimeError, "stack trace is unreasonably big"),
     "reserved3" / Int16ul * "!!Unknown field!!",
-    "reserved4" / Int32ul * "!!Unknown field!!",
-    "reserved5" / Int32ul * "!!Unknown field!!",
+    "details_size" / Int32ul,
+    "extra_details_offset" / Int32ul,
     "stacktrace" / ListAdapter(Array(lambda this: this.stacktrace_depth, PVoid)),
     "details" / Switch(lambda this: this.event_class, {
         EventClass.Process: ProcessDetails,
@@ -284,16 +284,13 @@ class PMLConstructReader(PMLStructReader):
         return self._events_offsets
 
     def get_event_at_offset(self, offset):
-        before = self._stream.tell()
         self._stream.seek(offset)
         event = EventStruct.parse_stream(self._stream, is_64bit=self._header.is_64bit,
                                          process_table=self._process_table, hosts_table=self._hosts_table,
                                          ports_table=self._ports_table)
-        self._stream.seek(before)
         return event
 
     def processes(self):
         """Return a list of all the known processes in the log file
         """
         return list(self._process_table.values())
-

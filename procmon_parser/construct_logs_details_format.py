@@ -3,10 +3,11 @@ Definitions For specific event details in process monitor logs
 """
 
 from collections import namedtuple, OrderedDict
+from ipaddress import IPv4Address, IPv6Address
+
 from construct import Int8ul, Int32ul, Struct, PaddedString, FlagsEnum, IfThenElse, Computed, Int16ul, Adapter, Bytes, \
     Switch, Enum, ExprAdapter, Pass, Array, BitStruct, BitsInteger, Bit, ByteSwapped, SymmetricAdapter
 from six import string_types
-from ipaddress import IPv4Address, IPv6Address
 
 from procmon_parser.construct_helper import PVoid, UTF16MultiSz, SizedUTF16MultiSz, Duration, \
     PaddedUTF16StringBestEffort
@@ -15,9 +16,7 @@ from procmon_parser.consts import ProcessOperation, RegistryOperation, Filesyste
     FilesystemSetInformationOperation, FilesystemPnpOperation, FilesystemQueryVolumeInformationOperation, \
     FilesystemSetVolumeInformationOperation, FilesystemLockUnlockOperation
 
-
 __all__ = ['EventDetails', 'NetworkDetails', 'RegistryDetails', 'FilesystemDetails', 'ProcessDetails']
-
 
 EventDetails = namedtuple("EventDetails", ['path', 'category', 'details'])
 
@@ -40,7 +39,6 @@ PortString = ExprAdapter(
     Struct("port_number" / Int16ul),
     lambda obj, ctx: ctx.ports_table.get((obj.port_number, bool(ctx.flags.is_tcp)), str(obj.port_number)),
     lambda obj, ctx: ctx.ports_table.index(obj))
-
 
 FilesystemQueryVolumeInformationOperationType = Enum(Int8ul, FilesystemQueryVolumeInformationOperation)
 FilesystemSetVolumeInformationOperationType = Enum(Int8ul, FilesystemSetVolumeInformationOperation)
@@ -88,7 +86,7 @@ class NetworkDetailsAdapter(Adapter):
     def _decode(self, obj, context, path):
         details = OrderedDict([("Length", obj.packet_length)])
         for i in range(len(obj.extra_details) // 2):
-            details[obj.extra_details[i*2]] = obj.extra_details[i*2+1]
+            details[obj.extra_details[i * 2]] = obj.extra_details[i * 2 + 1]
         return EventDetails(
             path="{}:{} -> {}:{}".format(obj.source_host, obj.source_port, obj.dest_host, obj.dest_port),
             category='',
@@ -121,7 +119,6 @@ The structure that holds the specific registry events details
     "path" / DetailString(lambda this: this.path_info)
 )
 
-
 RegistryDetails = ExprAdapter(
     RawRegistryDetailsStruct,
     lambda obj, ctx: EventDetails(path=obj.path, category='', details={}),
@@ -141,13 +138,11 @@ QueryDirectoryDetailsStruct = Struct(
     "directory_name" / DetailString(lambda this: this.directory_name_info) * fix_query_directory_path,
 )
 
-
 QueryDirectoryDetails = ExprAdapter(
     QueryDirectoryDetailsStruct,
     lambda obj, ctx: OrderedDict([('Filter', obj.directory_name)]) if obj.directory_name else {},
     lambda obj, ctx: None  # building file system detail structure is not supported yet
 )
-
 
 FilesystemSubOperationsTypes = {
     FilesystemOperation.QueryVolumeInformation.name: FilesystemQueryVolumeInformationOperationType,
@@ -188,13 +183,11 @@ The structure that holds the specific file system events details
     "path" / Computed(lambda ctx: ctx.path),  # The path might be changed because of the specific file operation
 )
 
-
 FilesystemDetails = ExprAdapter(
     RawFilesystemDetailsStruct,
     lambda obj, ctx: EventDetails(path=obj.path, category='', details=obj.operation_detail or {}),
     lambda obj, ctx: None  # building file system detail structure is not supported yet
 )
-
 
 RawLoadImageDetailsStruct = Struct(
     "is_64bit" / Computed(lambda ctx: ctx._._.is_64bit),  # we keep this in order to use PVoid
@@ -205,7 +198,6 @@ RawLoadImageDetailsStruct = Struct(
     "path" / DetailString(lambda this: this.path_info)
 )
 
-
 LoadImageDetails = ExprAdapter(
     RawLoadImageDetailsStruct,
     lambda obj, ctx: EventDetails(path=obj.path, category='',
@@ -213,7 +205,6 @@ LoadImageDetails = ExprAdapter(
                                                        ("Image Size", obj.image_size)])),
     lambda obj, ctx: None  # building load image detail structure is not supported yet
 )
-
 
 RawThreadExitDetails = Struct(
     "reserved1" / Int32ul * "!!Unknown field!!",
@@ -228,7 +219,6 @@ ThreadExitDetails = ExprAdapter(
                                                        ("Kernel Time", obj.kernel_time)])),
     lambda obj, ctx: None  # building load image detail structure is not supported yet
 )
-
 
 RawProcessCreateDetailsStruct = Struct(
     "reserved1" / Int32ul * "!!Unknown field!!",
@@ -251,7 +241,6 @@ ProcessCreateDetails = ExprAdapter(
     lambda obj, ctx: None  # building process create detail structure is not supported yet
 )
 
-
 RawProcessStartDetailsStruct = Struct(
     "parent_pid" / Int32ul,
     "command_line_info" / DetailStringInfo,
@@ -271,7 +260,6 @@ ProcessStartDetails = ExprAdapter(
                                                        ("Environment", obj.environment)])),
     lambda obj, ctx: None  # building process create detail structure is not supported yet
 )
-
 
 RawProcessDetailsStruct = """
 The structure that holds the specific process events details

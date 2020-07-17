@@ -3,12 +3,13 @@ Definitions For the process monitor configuration file formats.
 """
 from collections import OrderedDict
 from io import BytesIO
+
 from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, Array, Const, Switch, Tell, Adapter, \
     Rebuild, Default, Pointer, StreamError
+
+from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
 from procmon_parser.construct_helper import OriginalEnumAdapter, FixedUTF16String, FixedUTF16CString, FixedArray, \
     FixedBytes, CheckCustom
-from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
-
 
 # ===============================================================================
 # Procmon configuration file definitions

@@ -1,7 +1,7 @@
-from numpy import datetime64, timedelta64, uint64
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
     GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError, RepeatUntil, ExprAdapter, NullTerminated, Computed, \
     NullStripped
+from numpy import datetime64, timedelta64, uint64
 
 
 # ===============================================================================
@@ -10,6 +10,7 @@ from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedySt
 class OriginalEnumAdapter(Enum):
     """Used to decode the original enum type instead of EnumIntegerString
     """
+
     def __init__(self, subcon, enum_class, *arg, **kwargs):
         super(OriginalEnumAdapter, self).__init__(subcon, enum_class, *arg, **kwargs)
         self.original_enum = enum_class
@@ -21,6 +22,7 @@ class OriginalEnumAdapter(Enum):
 class ListAdapter(Adapter):
     """Used to decode regular python list instead of ListContainer
     """
+
     def _decode(self, obj, context, path):
         return list(obj)
 
@@ -71,12 +73,12 @@ def PaddedUTF16StringBestEffort(length):
 
 
 FixedNullTerminatedUTF16String = Struct(  # I don't use PascalString because it's a null terminated string.
-   "string_size" / Int32ul,
-   "string" / IfThenElse(
-       lambda this: this.string_size,
-       FixedSized(lambda this: this.string_size, NullTerminated(GreedyString("UTF_16_le"),
-                                                                term="\x00".encode("utf-16le"))),
-       Computed(''))
+    "string_size" / Int32ul,
+    "string" / IfThenElse(
+        lambda this: this.string_size,
+        FixedSized(lambda this: this.string_size, NullTerminated(GreedyString("UTF_16_le"),
+                                                                 term="\x00".encode("utf-16le"))),
+        Computed(''))
 )
 
 
@@ -109,7 +111,6 @@ class DurationAdapter(Adapter):
 
 Duration = DurationAdapter(Int64ul)
 PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
-
 
 UTF16MultiSz = ExprAdapter(
     RepeatUntil(lambda x, lst, ctx: not x, CString("UTF_16_le")),

@@ -3,6 +3,7 @@ Python types that procmon configuration uses
 """
 
 from six import string_types
+
 from procmon_parser.consts import Column, RuleAction, RuleRelation
 
 __all__ = ['Column', 'RuleAction', 'RuleRelation', 'Rule', 'Font']
