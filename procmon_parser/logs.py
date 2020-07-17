@@ -3,10 +3,12 @@ Python types that procmon logs use
 """
 
 import datetime
-from six import string_types
-from numpy import timedelta64
-from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation
+import enum
 
+from numpy import timedelta64
+from six import string_types
+
+from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation
 
 __all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
 
@@ -14,6 +16,7 @@ __all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
 class Module(object):
     """Information about a loaded module in a process or in the kernel
     """
+
     def __init__(self, base_address=0, size=0, path="", version="", company="", description="", timestamp=0):
         self.base_address = base_address
         self.size = size
@@ -78,7 +81,7 @@ class Process(object):
         return "\"{}\", {}".format(self.image_path, self.pid)
 
     def __repr__(self):
-        return "Process({}, {}, {}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")"\
+        return "Process({}, {}, {}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")" \
             .format(self.pid, self.parent_pid, self.authentication_id, self.session, self.virtualized,
                     self.is_process_64bit, self.integrity, self.user, self.process_name, self.image_path,
                     self.command_line, self.company, self.version, self.description)
@@ -90,7 +93,7 @@ class Event(object):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
-        self.operation = operation
+        self.operation = operation.name if isinstance(operation, enum.IntEnum) else operation
         self.date = date
         self.result = result
         self.duration = duration

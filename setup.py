@@ -17,7 +17,6 @@ setuptools.setup(
     install_requires=[
         "enum34;python_version<'3.4'",
         "construct>=2.10.54",
-        "kaitaistruct @ git+https://github.com/kaitai-io/kaitai_struct_python_runtime.git",
         "six",
         "numpy",
         "ipaddress;python_version<'3'",

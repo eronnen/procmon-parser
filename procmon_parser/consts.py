@@ -196,6 +196,15 @@ class FilesystemOperation(enum.IntEnum):
     PlugAndPlay = 47  # IRP_MJ_PNP
 
 
+EventClassOperation = {
+    EventClass.Process: ProcessOperation,
+    EventClass.Registry: RegistryOperation,
+    EventClass.File_System: FilesystemOperation,
+    EventClass.Profiling: ProfilingOperation,
+    EventClass.Network: NetworkOperation
+}
+
+
 class FilesystemQueryVolumeInformationOperation(enum.IntEnum):
     QueryInformationVolume = 0x1
     QueryLabelInformationVolume = 0x2
@@ -310,6 +319,16 @@ class FilesystemLockUnlockOperation(enum.IntEnum):
     UnlockFileAll = 0x3  # IRP_MJ_LOCK_CONTROL, FASTIO_UNLOCK_ALL
     UnlockFileByKey = 0x4  # IRP_MJ_LOCK_CONTROL, FASTIO_UNLOCK_ALL_BY_KEY
 
+
+FilesystemSubOperations = {
+    FilesystemOperation.QueryVolumeInformation: FilesystemQueryVolumeInformationOperation,
+    FilesystemOperation.SetVolumeInformation: FilesystemSetVolumeInformationOperation,
+    FilesystemOperation.QueryInformationFile: FilesystemQueryInformationOperation,
+    FilesystemOperation.SetInformationFile: FilesystemSetInformationOperation,
+    FilesystemOperation.DirectoryControl: FilesysemDirectoryControlOperation,
+    FilesystemOperation.PlugAndPlay: FilesystemPnpOperation,
+    FilesystemOperation.LockUnlockFile: FilesystemLockUnlockOperation,
+}
 
 _ErrorCodeMessages = {
     0: 'SUCCESS',

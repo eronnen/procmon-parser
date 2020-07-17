@@ -150,9 +150,10 @@ This is the array of all the captured events. Each event has the information nee
 | 0x1C   | FILETIME  | The time when the event was captured.                        |
 | 0x24   | Uint32    | The value of the event result.                               |
 | 0x28   | Uint16    | The depth of the captured stack trace.                       |
-| 0x2A   | Byte[10]  | Unknown                                                      |
+| 0x2A   | Uint16    | Unknown                                                      |
+| 0x2C   | Uint32    | The size of the specific detail structure (contains path and other details) |
+| 0x30   | Uint32    | The offset from the start of the event to extra detail structure. |
 | 0x34   | PVoid[]   | Array of the addresses of the stack frames.                  |
-| 0x34+n | Byte[]    | Specific event detail structure (which depends on the operation type) |
 
 #### Detail Structures
 
