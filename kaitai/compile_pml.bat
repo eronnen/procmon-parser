@@ -1,0 +1,1 @@
+"C:\Program Files (x86)\kaitai-struct-compiler\bin\kaitai-struct-compiler.bat" -d %~dp0..\procmon_parser\kaitai_generated -t python --python-package procmon_parser.kaitai_types %~dp0pml.ksy %~dp0pml_event.ksy

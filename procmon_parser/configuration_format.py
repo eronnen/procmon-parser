@@ -1,14 +1,13 @@
 """
 Definitions For the process monitor configuration file formats.
 """
-
+from collections import OrderedDict
+from io import BytesIO
 from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, Array, Const, Switch, Tell, Adapter, \
-    Rebuild, Default, Pointer
+    Rebuild, Default, Pointer, StreamError
 from procmon_parser.construct_helper import OriginalEnumAdapter, FixedUTF16String, FixedUTF16CString, FixedArray, \
     FixedBytes, CheckCustom
 from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
-
-__all__ = ['RuleRelationType', 'ColumnType', 'FontStruct', 'RuleStruct', 'RulesStruct', 'Record']
 
 
 # ===============================================================================
@@ -173,3 +172,42 @@ class RecordStructAdapter(Adapter):
 
 
 Record = RecordStructAdapter(RawRecordStruct)
+
+
+def load_configuration(stream):
+    """Deserialize ``stream`` (a ``.read()``-supporting file-like object) which contains PMC formatted data,
+    to a Python dictionary with the parsed configuration records.
+    """
+    records = []
+    while True:
+        try:
+            name, data = Record.parse_stream(stream)
+            records.append((name, data))
+        except StreamError:
+            break
+    return OrderedDict(records)
+
+
+def loads_configuration(data):
+    """Deserialize ``data`` (a ``bytes`` object), which contains PMC formatted data,
+    to a Python dictionary with the parsed configuration records.
+    """
+    stream = BytesIO(data)
+    return load_configuration(stream)
+
+
+def dump_configuration(records, stream):
+    """Serialize ``records``, a dictionary of procmon configuration records, to ``stream`` (a
+    ``.write()``-supporting file-like object that returns the length written (for python2 use the io module)),
+    in the format of PMC.
+    """
+    for name, data in records.items():
+        Record.build_stream((name, data), stream)
+
+
+def dumps_configuration(records):
+    """Serialize ``records``, a dictionary of procmon configuration records, to ``bytes`` in the format of PMC.
+    """
+    stream = BytesIO()
+    dump_configuration(records, stream)
+    return stream.getvalue()
