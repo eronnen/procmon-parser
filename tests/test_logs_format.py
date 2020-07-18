@@ -1,4 +1,5 @@
 
+import re
 from six import PY2
 from six.moves import zip_longest
 from procmon_parser.consts import Column, ColumnToOriginalName
@@ -44,13 +45,41 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "TCP Reconnect", "UDP Reconnect",
         "TCP Retransmit", "UDP Retransmit",
         "TCP TCPCopy", "UDP TCPCopy",
+
         "Process Defined",
         "Process Create",
         "Process Start",
         "Thread Exit",
         "Load Image",
+
+        "RegQueryValue",
+        "RegEnumValue",
+    ],
+
+    Column.CATEGORY: [
+        "RegQueryValue",
+        "RegEnumValue",
     ]
 }
+
+
+def are_we_better_than_procmon(pml_record, csv_record, column_name, i):
+    if pml_record["Operation"] != csv_record["Operation"]:
+        return False
+
+    if column_name == "Detail":
+        if "Reg" in csv_record["Operation"]:
+            if "Data: " in csv_record["Detail"] and "Type: REG_" in csv_record["Detail"]:
+                pml_data = re.search("Data: (.*)", pml_record["Detail"]).group(1)
+                csv_data = re.search("Data: (.*)", csv_record["Detail"]).group(1)
+                pml_detail = pml_record["Detail"][:pml_record["Detail"].index(pml_data)]
+                csv_detail = csv_record["Detail"][:csv_record["Detail"].index(csv_data)]
+                if pml_detail != csv_detail:
+                    return False
+
+                # Sometimes they have an overflow reading registry data!
+                return len(pml_data) > 0 and pml_data in csv_data
+    return False
 
 
 def check_pml_equals_csv(csv_reader, pml_reader):
@@ -69,25 +98,28 @@ def check_pml_equals_csv(csv_reader, pml_reader):
             raise
 
         for column in SUPPORTED_COLUMNS:
-            pml_value = pml_compatible_record[column]
-            csv_value = csv_record[ColumnToOriginalName[column]]
-            if column == Column.OPERATION and csv_value == "<Unknown>":
+            column_name = ColumnToOriginalName[column]
+            pml_value = pml_compatible_record[column_name]
+            csv_value = csv_record[column_name]
+            if column_name == "Operation" and csv_value == "<Unknown>":
                 assert "<Unknown>" in pml_value  # Sometimes there are unknown sub operations
                 continue
             if pml_value != csv_value:
                 raise AssertionError(
                     "Event {}, Column {}: PMl=\"{}\", CSV=\"{}\".\n PML Event: {}\nCSV Event: {}".format(
-                        i+1, ColumnToOriginalName[column], pml_value, csv_value, repr(pml_record), csv_record))
+                        i+1, column_name, pml_value, csv_value, repr(pml_record), csv_record))
 
         for column in PARTIAL_SUPPORTED_COLUMNS:
-            if csv_record[ColumnToOriginalName[Column.OPERATION]] != "<Unknown>":
-                assert pml_compatible_record[Column.OPERATION] == csv_record[ColumnToOriginalName[Column.OPERATION]]
-            if pml_compatible_record[Column.OPERATION] in PARTIAL_SUPPORTED_COLUMNS[column]:
-                pml_value = pml_compatible_record[column]
-                csv_value = csv_record[ColumnToOriginalName[column]]
-                if pml_value != csv_value:
+            column_name = ColumnToOriginalName[column]
+            if csv_record["Operation"] != "<Unknown>":
+                assert pml_compatible_record["Operation"] == csv_record["Operation"]
+            if pml_compatible_record["Operation"] in PARTIAL_SUPPORTED_COLUMNS[column]:
+                pml_value = pml_compatible_record[column_name]
+                csv_value = csv_record[column_name]
+                if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
+                                                                             column_name, i):
                     raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
-                        i + 1, ColumnToOriginalName[column], pml_value, csv_value))
+                        i + 1, column_name, pml_value, csv_value))
 
 
 def test_pml_equals_csv_32bit(csv_reader_windows7_32bit, pml_reader_windows7_32bit):

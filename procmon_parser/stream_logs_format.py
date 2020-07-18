@@ -197,7 +197,18 @@ def read_event(io, metadata):
                   result=result, stacktrace=stacktrace, category='', path='', details=extra_details)
 
     details_stream = BytesIO(io.read(details_size))
-    extra_details_stream = None  # still I don't know a lot about this field :(
+    extra_details_stream = None
+    if extra_details_offset > 0:
+        # The extra details structure surprisingly can be separated from the event structure
+        extra_details_offset -= \
+            (COMMON_EVENT_INFO_SIZE + details_size + stacktrace_depth * sizeof_pvoid(metadata.is_64bit))
+        assert extra_details_offset >= 0
+
+        current_offset = io.tell()
+        io.seek(extra_details_offset, 1)
+        extra_details_stream_size = read_u16(io)
+        extra_details_stream = BytesIO(io.read(extra_details_stream_size))
+        io.seek(current_offset, 0)
     get_event_details(details_stream, metadata, event, extra_details_stream)
     return event
 

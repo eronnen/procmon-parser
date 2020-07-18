@@ -1,10 +1,10 @@
 from collections import namedtuple
+from io import BytesIO
 
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
-    FilesystemSubOperations, \
-    FilesysemDirectoryControlOperation
+    FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_pvoid, read_duration, \
-    read_utf16_multisz, sizeof_pvoid
+    read_utf16_multisz, sizeof_pvoid, read_u64
 
 PmlMetadata = namedtuple('PmlMetadata', ['is_64bit', 'str_idx', 'process_idx', 'hostname_idx', 'port_idx'])
 
@@ -12,14 +12,14 @@ PmlMetadata = namedtuple('PmlMetadata', ['is_64bit', 'str_idx', 'process_idx', '
 def read_detail_string_info(io):
     """Reads the info field about a detail string (contains is_ascii and number of characters)
     """
-    return read_u16(io)
+    flags = read_u16(io)
+    return flags >> 15 == 1, flags & (2 ** 15 - 1)  # is_ascii, char_count
 
 
 def read_detail_string(io, string_info):
     """Reads a string in the details that has an info field declared before
     """
-    is_ascii = string_info >> 15 == 1
-    character_count = string_info & (2 ** 15 - 1)
+    is_ascii, character_count = string_info
     if is_ascii:
         return io.read(character_count).decode("ascii")
     else:
@@ -55,22 +55,101 @@ def get_network_event_details(io, metadata, event, extra_detail_io):
         event.details[extra_details[i * 2]] = extra_details[i * 2 + 1]
 
 
+def read_registry_data(io, reg_type, length=0):
+    """Reads registry data (which is present in the Detail column in original Procmon) according to ``reg_type``
+    """
+    if reg_type is None:
+        return ''  # Don't know how to read
+    elif reg_type == RegistryTypes.REG_DWORD:
+        return read_u32(io)
+    elif reg_type == RegistryTypes.REG_QWORD:
+        return read_u64(io)
+    elif reg_type == RegistryTypes.REG_EXPAND_SZ or reg_type == RegistryTypes.REG_SZ:
+        return read_utf16(io)
+    elif reg_type == RegistryTypes.REG_BINARY:
+        # Assuming the stream ends at the end of the extra detail, so just read everything
+        return io.read(length)
+    elif reg_type == RegistryTypes.REG_MULTI_SZ:
+        return read_utf16_multisz(io, length)
+
+    return None
+
+
+def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Read"  # RegQueryValue and RegEnumValue are always Read
+    key_value_information_class = RegistryKeyValueInformationClass(details_info["information_class"])
+
+    if event.operation == RegistryOperation.RegEnumValue.name:
+        event.details["Index"] = details_info["index"]  # Only in enum
+
+    if not extra_detail_io:
+        #  There is no extra details
+        event.details["Length"] = details_info["length"]
+        return
+
+    extra_detail_io.seek(4, 1)  # Unknown field
+    reg_type_value = read_u32(extra_detail_io)
+    reg_type = None
+    try:
+        reg_type = RegistryTypes(reg_type_value)
+        reg_type_name = reg_type.name
+    except ValueError:
+        reg_type_name = "<Unknown: {}>".format(reg_type_value)  # Don't know how to parse this
+
+    if key_value_information_class == RegistryKeyValueInformationClass.KeyValueFullInformation:
+        offset_to_data = read_u32(extra_detail_io)
+        length_value = read_u32(extra_detail_io)
+        name_size = read_u32(extra_detail_io)
+        name = read_utf16(extra_detail_io, name_size)
+        event.details["Name"] = name
+        extra_detail_io.seek(offset_to_data, 0)  # the stream starts at the start of the struct so the seek is good
+    elif key_value_information_class == RegistryKeyValueInformationClass.KeyValuePartialInformation:
+        length_value = read_u32(extra_detail_io)
+    else:
+        # Only KeyValuePartialInformation and KeyValueFullInformation have Data property
+        event.details["Type"] = reg_type.name  # the Type is still known...
+        return
+
+    event.details["Type"] = reg_type_name  # I do this assignment here because "Name" comes before "Type"
+    event.details["Length"] = length_value
+
+    if length_value > 0:
+        event.details["Data"] = read_registry_data(extra_detail_io, reg_type, length_value)
+
+
+RegistryExtraDetailsHandler = {
+    RegistryOperation.RegQueryValue.name: get_registry_query_value_details,
+    RegistryOperation.RegEnumValue.name: get_registry_enum_value,
+}
+
+
 def get_registry_event_details(io, metadata, event, extra_detail_io):
     path_info = read_detail_string_info(io)
+    details_info = dict()  # information that is needed by the extra details structure
+
     if event.operation in [RegistryOperation.RegLoadKey.name, RegistryOperation.RegRenameKey.name]:
         io.seek(2, 1)  # Unknown field
     elif event.operation in [RegistryOperation.RegOpenKey.name, RegistryOperation.RegCreateKey.name]:
         io.seek(6, 1)  # Unknown field
     elif event.operation in [RegistryOperation.RegQueryKey.name, RegistryOperation.RegQueryValue.name]:
-        io.seek(10, 1)  # Unknown field
+        io.seek(2, 1)  # Unknown field
+        details_info["length"] = read_u32(io)
+        details_info["information_class"] = read_u32(io)
     elif event.operation in [RegistryOperation.RegSetValue.name, RegistryOperation.RegEnumValue.name,
                              RegistryOperation.RegEnumKey.name, RegistryOperation.RegSetInfoKey.name]:
-        io.seek(14, 1)  # Unknown field
+        io.seek(2, 1)  # Unknown field
+        details_info["length"] = read_u32(io)
+        details_info["index"] = read_u32(io)
+        details_info["information_class"] = read_u32(io)
 
     event.path = read_detail_string(io, path_info)
 
+    # Get the extra details structure
+    if event.operation in RegistryExtraDetailsHandler:
+        RegistryExtraDetailsHandler[event.operation](metadata, event, extra_detail_io, details_info)
 
-def get_filesystem_query_directory_extra_details(io, metadata, event, extra_detail_io):
+
+def get_filesystem_query_directory_details(io, metadata, event, extra_detail_io):
     directory_name_info = read_detail_string_info(io)
     directory_name = read_detail_string(io, directory_name_info)
     if directory_name:
@@ -79,7 +158,7 @@ def get_filesystem_query_directory_extra_details(io, metadata, event, extra_deta
 
 
 FilesystemSubOperationHandler = {
-    FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_extra_details
+    FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_details
 }
 
 

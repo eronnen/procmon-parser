@@ -482,3 +482,29 @@ _ErrorCodeMessages = {
 
 def get_error_message(error_value):
     return _ErrorCodeMessages.get(error_value, "0x{:X}".format(error_value))
+
+
+class RegistryTypes(enum.IntEnum):
+    REG_NONE = 0  # No value type
+    REG_SZ = 1  # Unicode nul terminated string
+    REG_EXPAND_SZ = 2  # Unicode nul terminated string
+    REG_BINARY = 3  # Free form binary
+    REG_DWORD = 4  # 32-bit number
+    REG_DWORD_LITTLE_ENDIAN = 4  # 32-bit number (same as REG_DWORD)
+    REG_DWORD_BIG_ENDIAN = 5  # 32-bit number
+    REG_LINK = 6  # Symbolic Link (unicode)
+    REG_MULTI_SZ = 7  # Multiple Unicode strings
+    REG_RESOURCE_LIST = 8  # Resource list in the resource map
+    REG_FULL_RESOURCE_DESCRIPTOR = 9  # Resource list in the hardware description
+    REG_RESOURCE_REQUIREMENTS_LIST = 10
+    REG_QWORD = 11  # 64-bit number
+    REG_QWORD_LITTLE_ENDIAN = 11  # 64-bit number (same as REG_QWORD)
+
+
+class RegistryKeyValueInformationClass(enum.IntEnum):
+    KeyValueBasicInformation = 0,
+    KeyValueFullInformation = 1,
+    KeyValuePartialInformation = 2
+    KeyValueFullInformationAlign64 = 3,
+    KeyValuePartialInformationAlign64 = 4,
+    KeyValueLayerInformation = 5,

@@ -2,13 +2,14 @@
 Python types that procmon logs use
 """
 
+import binascii
 import datetime
 import enum
 
 from numpy import timedelta64
 from six import string_types
 
-from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation
+from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation, ColumnToOriginalName
 
 __all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
 
@@ -172,13 +173,31 @@ class Event(object):
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
         elif self.operation == ProcessOperation.Process_Start.name:
             details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
+        elif "Reg" in self.operation:
+            if "Length" in details:
+                details["Length"] = '{:,}'.format(details["Length"])
+
+            if details.get("Type", '') == "REG_BINARY" and "Data" in details:
+                binary_ascii = str(binascii.b2a_hex(details["Data"]), 'ascii').upper()
+                binary_ascii_formatted = ' '.join(binary_ascii[i:i+2] for i in range(0, len(binary_ascii), 2))
+                details["Data"] = binary_ascii_formatted
+            elif details.get("Type", '') == "REG_QWORD" and "Data" in details:
+                details["Data"] = ''  # Procmon doesnt print qword in csv, I don't know why
+            elif details.get("Type", '') == "REG_MULTI_SZ" and "Data" in details:
+                details["Data"] = ', '.join(details["Data"])
+            elif "Data" in details and isinstance(details["Data"], string_types):
+                details["Data"] = "\n;".join(details["Data"].split('\r\n'))  # They add ; before a new line
+
+            if self.operation == "RegQueryValue" and "Name" in details:
+                del details["Name"]
+
         return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 
     def get_compatible_csv_info(self, first_event_date=None):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
         """
         first_event_date = first_event_date if first_event_date else self.date
-        return {
+        record = {
             Column.DATE_AND_TIME: Event._strftime_date(self.date, True, False),
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
@@ -212,6 +231,9 @@ class Event(object):
                 Event._strftime_date(self.date + self.duration, False, True)
                 if get_error_message(self.result) != "" else "",
         }
+
+        compatible_record = {ColumnToOriginalName[k]: v for k, v in record.items()}
+        return compatible_record
 
 
 class PMLStructReader(object):
