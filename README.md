@@ -122,11 +122,11 @@ The PML format is very complex so there are some features that are not supported
         - [ ] RegOpenKey
         - [ ] RegCreateKey
         - [ ] RegCloseKey
-        - [ ] RegQueryKey
+        - [x] RegQueryKey
         - [ ] RegSetValue
-        - [ ] RegQueryValue
-        - [ ] RegEnumValue
-        - [ ] RegEnumKey
+        - [x] RegQueryValue
+        - [x] RegEnumValue
+        - [x] RegEnumKey
         - [ ] RegSetInfoKey
         - [ ] RegDeleteKey
         - [ ] RegDeleteValue

@@ -159,6 +159,11 @@ class Event(object):
             return str(True)
         return "n/a"
 
+    def _get_compatible_csv_operation_name(self):
+        if "<Unknown>" in self.operation:
+            return "<Unknown>"
+        return self.operation.replace('_', ' ')
+
     def _get_compatible_csv_detail_column(self):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
         """
@@ -174,11 +179,19 @@ class Event(object):
         elif self.operation == ProcessOperation.Process_Start.name:
             details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
         elif "Reg" in self.operation:
-            if "Length" in details:
-                details["Length"] = '{:,}'.format(details["Length"])
+            commas_formatted_keys = ["Length", "SubKeys", "Values"]
+            for key in commas_formatted_keys:
+                if key in details:
+                    details[key] = '{:,}'.format(details[key])
+
+            removed_keys = ["LastWriteTime", "TitleIndex", "MaxNameLen", "MaxValueNameLen", "MaxValueDataLen",
+                            "ClassOffset", "ClassLength", "MaxClassLen"]
+            for key in removed_keys:
+                if key in details:
+                    del details[key]
 
             if details.get("Type", '') == "REG_BINARY" and "Data" in details:
-                binary_ascii = str(binascii.b2a_hex(details["Data"]), 'ascii').upper()
+                binary_ascii = binascii.b2a_hex(details["Data"]).decode('ascii').upper()
                 binary_ascii_formatted = ' '.join(binary_ascii[i:i+2] for i in range(0, len(binary_ascii), 2))
                 details["Data"] = binary_ascii_formatted
             elif details.get("Type", '') == "REG_QWORD" and "Data" in details:
@@ -190,6 +203,11 @@ class Event(object):
 
             if self.operation == "RegQueryValue" and "Name" in details:
                 del details["Name"]
+            elif self.operation == "RegQueryKey" and details["Query"] == "Name" and "Name" in details:
+                del details["Name"]
+
+            if "HandleTags" in details:
+                details["HandleTags"] = "0x{:x}".format(details["HandleTags"])
 
         return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 
@@ -201,7 +219,7 @@ class Event(object):
             Column.DATE_AND_TIME: Event._strftime_date(self.date, True, False),
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
-            Column.OPERATION: self.operation.replace('_', ' '),
+            Column.OPERATION: self._get_compatible_csv_operation_name(),
             Column.RESULT: get_error_message(self.result),
             Column.DETAIL: self._get_compatible_csv_detail_column(),
             Column.SEQUENCE: 'n/a',  # They do it too

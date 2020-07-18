@@ -2,9 +2,10 @@ from collections import namedtuple
 from io import BytesIO
 
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
-    FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass
+    FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass, \
+    RegistryKeyInformationClass
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_pvoid, read_duration, \
-    read_utf16_multisz, sizeof_pvoid, read_u64
+    read_utf16_multisz, sizeof_pvoid, read_u64, read_filetime
 
 PmlMetadata = namedtuple('PmlMetadata', ['is_64bit', 'str_idx', 'process_idx', 'hostname_idx', 'port_idx'])
 
@@ -75,6 +76,63 @@ def read_registry_data(io, reg_type, length=0):
     return None
 
 
+def get_registry_query_or_enum_key_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Read"  # RegQueryKey and RegEnumKey is always Read
+    key_information_class = RegistryKeyInformationClass(details_info["information_class"])
+
+    if event.operation == RegistryOperation.RegEnumKey.name:
+        event.details["Index"] = details_info["index"]  # Only in enum
+    elif event.operation == RegistryOperation.RegQueryKey.name:
+        event.details["Query"] = key_information_class.name # Only in query
+
+    if not extra_detail_io:
+        #  There is no extra details
+        event.details["Length"] = details_info["length"]
+        return
+
+    if key_information_class == RegistryKeyInformationClass.Name:
+        # KEY_NAME_INFORMATION structure
+        name_size = read_u32(extra_detail_io)
+        event.details["Name"] = read_utf16(extra_detail_io, name_size)
+    elif key_information_class == RegistryKeyInformationClass.HandleTags:
+        event.details["HandleTags"] = read_u32(extra_detail_io)
+    elif key_information_class == RegistryKeyInformationClass.Cached:
+        # KEY_CACHED_INFORMATION structure
+        event.details["LastWriteTime"] = read_filetime(extra_detail_io)
+        event.details["TitleIndex"] = read_u32(extra_detail_io)
+        event.details["SubKeys"] = read_u32(extra_detail_io)
+        event.details["MaxNameLen"] = read_u32(extra_detail_io)
+        event.details["Values"] = read_u32(extra_detail_io)
+        event.details["MaxValueNameLen"] = read_u32(extra_detail_io)
+        event.details["MaxValueDataLen"] = read_u32(extra_detail_io)
+    elif key_information_class == RegistryKeyInformationClass.Basic:
+        # KEY_BASIC_INFORMATION structure
+        event.details["LastWriteTime"] = read_filetime(extra_detail_io)
+        event.details["TitleIndex"] = read_u32(extra_detail_io)
+        name_size = read_u32(extra_detail_io)
+        event.details["Name"] = read_utf16(extra_detail_io, name_size)
+    elif key_information_class == RegistryKeyInformationClass.Full:
+        # KEY_FULL_INFORMATION structure
+        event.details["LastWriteTime"] = read_filetime(extra_detail_io)
+        event.details["TitleIndex"] = read_u32(extra_detail_io)
+        event.details["ClassOffset"] = read_u32(extra_detail_io)
+        event.details["ClassLength"] = read_u32(extra_detail_io)
+        event.details["SubKeys"] = read_u32(extra_detail_io)
+        event.details["MaxNameLen"] = read_u32(extra_detail_io)
+        event.details["MaxClassLen"] = read_u32(extra_detail_io)
+        event.details["Values"] = read_u32(extra_detail_io)
+        event.details["MaxValueNameLen"] = read_u32(extra_detail_io)
+        event.details["MaxValueDataLen"] = read_u32(extra_detail_io)
+    elif key_information_class == RegistryKeyInformationClass.Node:
+        # KEY_NODE_INFORMATION structure
+        event.details["LastWriteTime"] = read_filetime(extra_detail_io)
+        event.details["TitleIndex"] = read_u32(extra_detail_io)
+        event.details["ClassOffset"] = read_u32(extra_detail_io)
+        event.details["ClassLength"] = read_u32(extra_detail_io)
+        name_size = read_u32(extra_detail_io)
+        event.details["Name"] = read_utf16(extra_detail_io, name_size)
+
+
 def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail_io, details_info):
     event.category = "Read"  # RegQueryValue and RegEnumValue are always Read
     key_value_information_class = RegistryKeyValueInformationClass(details_info["information_class"])
@@ -100,8 +158,7 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
         offset_to_data = read_u32(extra_detail_io)
         length_value = read_u32(extra_detail_io)
         name_size = read_u32(extra_detail_io)
-        name = read_utf16(extra_detail_io, name_size)
-        event.details["Name"] = name
+        event.details["Name"] = read_utf16(extra_detail_io, name_size)
         extra_detail_io.seek(offset_to_data, 0)  # the stream starts at the start of the struct so the seek is good
     elif key_value_information_class == RegistryKeyValueInformationClass.KeyValuePartialInformation:
         length_value = read_u32(extra_detail_io)
@@ -118,8 +175,10 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
 
 
 RegistryExtraDetailsHandler = {
-    RegistryOperation.RegQueryValue.name: get_registry_query_value_details,
-    RegistryOperation.RegEnumValue.name: get_registry_enum_value,
+    RegistryOperation.RegQueryKey.name: get_registry_query_or_enum_key_extra_details,
+    RegistryOperation.RegQueryValue.name: get_registry_query_or_enum_value_extra_details,
+    RegistryOperation.RegEnumValue.name: get_registry_query_or_enum_value_extra_details,
+    RegistryOperation.RegEnumKey.name: get_registry_query_or_enum_key_extra_details,
 }
 
 

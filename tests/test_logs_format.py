@@ -52,13 +52,17 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "Thread Exit",
         "Load Image",
 
+        "RegQueryKey",
         "RegQueryValue",
         "RegEnumValue",
+        "RegEnumKey",
     ],
 
     Column.CATEGORY: [
+        "RegQueryKey",
         "RegQueryValue",
         "RegEnumValue",
+        "RegEnumKey",
     ]
 }
 
@@ -101,9 +105,6 @@ def check_pml_equals_csv(csv_reader, pml_reader):
             column_name = ColumnToOriginalName[column]
             pml_value = pml_compatible_record[column_name]
             csv_value = csv_record[column_name]
-            if column_name == "Operation" and csv_value == "<Unknown>":
-                assert "<Unknown>" in pml_value  # Sometimes there are unknown sub operations
-                continue
             if pml_value != csv_value:
                 raise AssertionError(
                     "Event {}, Column {}: PMl=\"{}\", CSV=\"{}\".\n PML Event: {}\nCSV Event: {}".format(

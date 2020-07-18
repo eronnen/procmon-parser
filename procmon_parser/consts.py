@@ -508,3 +508,16 @@ class RegistryKeyValueInformationClass(enum.IntEnum):
     KeyValueFullInformationAlign64 = 3,
     KeyValuePartialInformationAlign64 = 4,
     KeyValueLayerInformation = 5,
+
+
+class RegistryKeyInformationClass(enum.IntEnum):
+    Basic = 0
+    Node = 1
+    Full = 2
+    Name = 3
+    Cached = 4
+    Flags = 5
+    Virtualization = 6
+    HandleTags = 7
+    Trust = 8
+    Layer = 9
