@@ -54,19 +54,54 @@ PARTIAL_SUPPORTED_COLUMNS = {
 
         "RegOpenKey",
         "RegCreateKey",
+        "RegCloseKey",
         "RegQueryKey",
+        "RegSetValue",
         "RegQueryValue",
         "RegEnumValue",
         "RegEnumKey",
+        "RegSetInfoKey",
+        "RegDeleteKey",
+        "RegDeleteValue",
+        "RegFlushKey",
+        "RegLoadKey",
+        "RegUnloadKey",
+        "RegRenameKey",
+        "RegQueryMultipleValueKey",
+        "RegSetKeySecurity",
+        "RegQueryKeySecurity",
     ],
 
     Column.CATEGORY: [
+        "TCP Unknown", "UDP Unknown",
+        "TCP Other", "UDP Other",
+        "TCP Send", "UDP Send",
+        "TCP Receive", "UDP Receive",
+        "TCP Accept", "UDP Accept",
+        "TCP Connect", "UDP Connect",
+        "TCP Disconnect", "UDP Disconnect",
+        "TCP Reconnect", "UDP Reconnect",
+        "TCP Retransmit", "UDP Retransmit",
+        "TCP TCPCopy", "UDP TCPCopy",
+
         "RegOpenKey",
         "RegCreateKey",
+        "RegCloseKey",
+        "RegSetValue",
         "RegQueryKey",
         "RegQueryValue",
         "RegEnumValue",
         "RegEnumKey",
+        "RegSetInfoKey",
+        "RegDeleteKey",
+        "RegDeleteValue",
+        "RegFlushKey",
+        "RegLoadKey",
+        "RegUnloadKey",
+        "RegRenameKey",
+        "RegQueryMultipleValueKey",
+        "RegSetKeySecurity",
+        "RegQueryKeySecurity",
     ]
 }
 
@@ -86,7 +121,10 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, i):
                     return False
 
                 # Sometimes they have an overflow reading registry data!
-                return len(pml_data) > 0 and pml_data in csv_data
+                if len(pml_data) > 0 and pml_data in csv_data:
+                    return True
+                elif csv_data in pml_data and csv_data[:16] == pml_data[:16]:
+                    return True
     return False
 
 

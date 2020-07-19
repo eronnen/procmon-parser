@@ -3,7 +3,6 @@ from six import PY2
 from procmon_parser.configuration import *
 from procmon_parser.configuration_format import load_configuration, loads_configuration, dump_configuration, \
     dumps_configuration
-from procmon_parser.construct_logs_format import PMLConstructReader
 from procmon_parser.logs import *
 from procmon_parser.stream_logs_format import PMLStreamReader
 
@@ -16,15 +15,11 @@ class ProcmonLogsReader(object):
     """Reads procmon logs from a stream which in the PML format
     """
 
-    def __init__(self, f, use_construct=False):
+    def __init__(self, f):
         """Build a ProcmonLogsReader object from ``f`` (a `.read()``-supporting file-like object).
         :param f: ``read`` supporting file-like object
-        :param use_construct: whether to use construct library, which is significantly slower. Use only for debugging.
         """
-        if use_construct:
-            self._struct_readear = PMLConstructReader(f)
-        else:
-            self._struct_readear = PMLStreamReader(f)
+        self._struct_readear = PMLStreamReader(f)
         self._current_event_index = 0
 
     def __iter__(self):

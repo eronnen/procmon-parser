@@ -3,7 +3,7 @@ from io import BytesIO
 
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass, \
-    RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition
+    RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_pvoid, read_duration, \
     read_utf16_multisz, sizeof_pvoid, read_u64, read_filetime
 
@@ -56,24 +56,54 @@ def get_network_event_details(io, metadata, event, extra_detail_io):
         event.details[extra_details[i * 2]] = extra_details[i * 2 + 1]
 
 
-def read_registry_data(io, reg_type, length=0):
+def read_registry_data(io, reg_type_name, length=0):
     """Reads registry data (which is present in the Detail column in original Procmon) according to ``reg_type``
     """
-    if reg_type is None:
-        return ''  # Don't know how to read
-    elif reg_type == RegistryTypes.REG_DWORD:
+    if reg_type_name == RegistryTypes.REG_DWORD.name:
         return read_u32(io)
-    elif reg_type == RegistryTypes.REG_QWORD:
+    elif reg_type_name == RegistryTypes.REG_QWORD.name:
         return read_u64(io)
-    elif reg_type == RegistryTypes.REG_EXPAND_SZ or reg_type == RegistryTypes.REG_SZ:
+    elif reg_type_name == RegistryTypes.REG_EXPAND_SZ.name or reg_type_name == RegistryTypes.REG_SZ.name:
         return read_utf16(io)
-    elif reg_type == RegistryTypes.REG_BINARY:
+    elif reg_type_name == RegistryTypes.REG_BINARY.name:
         # Assuming the stream ends at the end of the extra detail, so just read everything
         return io.read(length)
-    elif reg_type == RegistryTypes.REG_MULTI_SZ:
+    elif reg_type_name == RegistryTypes.REG_MULTI_SZ.name:
         return read_utf16_multisz(io, length)
 
-    return None
+    return ''
+
+
+def get_reg_type_name(reg_type_value):
+    try:
+        return RegistryTypes(reg_type_value).name
+    except ValueError:
+        return "<Unknown: {}>".format(reg_type_value)  # Don't know how to parse this
+
+
+def get_registry_query_multiple_value_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Read"
+
+
+def get_registry_set_key_security_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Write Metadata"
+
+
+def get_registry_query_key_security_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Read Metadata"
+
+
+def get_registry_delete_key_or_value_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Write"
+
+
+def get_registry_load_or_rename_extra_details(metadata, event, extra_detail_io, details_info):
+    new_path = read_detail_string(extra_detail_io, details_info["new_path_info"])
+    if event.operation == RegistryOperation.RegLoadKey.name:
+        event.details["Hive Path"] = new_path
+    elif event.operation == RegistryOperation.RegRenameKey.name:
+        event.category = "Write"
+        event.details["New Name"] = new_path
 
 
 def get_registry_query_or_enum_key_extra_details(metadata, event, extra_detail_io, details_info):
@@ -96,6 +126,8 @@ def get_registry_query_or_enum_key_extra_details(metadata, event, extra_detail_i
         event.details["Name"] = read_utf16(extra_detail_io, name_size)
     elif key_information_class == RegistryKeyInformationClass.HandleTags:
         event.details["HandleTags"] = read_u32(extra_detail_io)
+    elif key_information_class == RegistryKeyInformationClass.Flags:
+        event.details["UserFlags"] = read_u32(extra_detail_io)
     elif key_information_class == RegistryKeyInformationClass.Cached:
         # KEY_CACHED_INFORMATION structure
         event.details["LastWriteTime"] = read_filetime(extra_detail_io)
@@ -146,13 +178,7 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
         return
 
     extra_detail_io.seek(4, 1)  # Unknown field
-    reg_type_value = read_u32(extra_detail_io)
-    reg_type = None
-    try:
-        reg_type = RegistryTypes(reg_type_value)
-        reg_type_name = reg_type.name
-    except ValueError:
-        reg_type_name = "<Unknown: {}>".format(reg_type_value)  # Don't know how to parse this
+    reg_type_name = get_reg_type_name(read_u32(extra_detail_io))
 
     if key_value_information_class == RegistryKeyValueInformationClass.KeyValueFullInformation:
         offset_to_data = read_u32(extra_detail_io)
@@ -164,18 +190,21 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
         length_value = read_u32(extra_detail_io)
     else:
         # Only KeyValuePartialInformation and KeyValueFullInformation have Data property
-        event.details["Type"] = reg_type.name  # the Type is still known...
+        event.details["Type"] = reg_type_name  # the Type is still known...
         return
 
     event.details["Type"] = reg_type_name  # I do this assignment here because "Name" comes before "Type"
     event.details["Length"] = length_value
 
     if length_value > 0:
-        event.details["Data"] = read_registry_data(extra_detail_io, reg_type, length_value)
+        event.details["Data"] = read_registry_data(extra_detail_io, reg_type_name, length_value)
 
 
 def get_registry_open_or_create_key_extra_details(metadata, event, extra_detail_io, details_info):
     event.category = "Read"
+    if 0 == details_info["desired_access"]:
+        return
+
     event.details["Desired Access"] = get_registry_access_mask_string(details_info["desired_access"])
     if not extra_detail_io:
         return
@@ -186,25 +215,55 @@ def get_registry_open_or_create_key_extra_details(metadata, event, extra_detail_
         extra_detail_io.seek(4, 1)
 
     disposition = read_u32(extra_detail_io)
+    try:
+        event.details["Disposition"] = RegistryDisposition(disposition).name
+        if event.details["Disposition"] == RegistryDisposition.REG_CREATED_NEW_KEY.name:
+            event.category = "Write"
+    except ValueError:
+        pass
 
-    # I really have no idea why they do this logic :(
-    has_more_data = extra_detail_io.read(1)
-    if has_more_data != '':
-        try:
-            event.details["Disposition"] = RegistryDisposition(disposition).name
-            if event.details["Disposition"] == RegistryDisposition.REG_CREATED_NEW_KEY.name:
-                event.category = "Write"
-        except ValueError:
-            pass
+
+def get_registry_set_info_key_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Write Metadata"
+    event.details["KeySetInformationClass"] = RegistryKeySetInformationClass.get(
+        details_info["key_set_information_class"],
+        "<Unknown: {}>".format(details_info["key_set_information_class"])
+    )
+    event.details["Length"] = details_info["length"]
+    if details_info["length"] > 0:
+        if event.details["KeySetInformationClass"] == "KeyWriteTimeInformation":
+            event.details["LastWriteTime"] = read_filetime(extra_detail_io)
+        elif event.details["KeySetInformationClass"] == "KeyWow64FlagsInformation":
+            event.details["Wow64Flags"] = read_u32(extra_detail_io)
+        elif event.details["KeySetInformationClass"] == "KeyWriteTimeInformation":
+            event.details["HandleTags"] = read_u32(extra_detail_io)
+
+
+def get_registry_set_value_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Write"
+    event.details["Type"] = get_reg_type_name(details_info["reg_type"])
+    event.details["Length"] = details_info["length"]
+    length = min(event.details["Length"], details_info["data_length"])
+    if length > 0 and "Unknown" not in event.details["Type"]:
+        event.details["Data"] = read_registry_data(extra_detail_io, event.details["Type"], length)
 
 
 RegistryExtraDetailsHandler = {
     RegistryOperation.RegOpenKey.name: get_registry_open_or_create_key_extra_details,
     RegistryOperation.RegCreateKey.name: get_registry_open_or_create_key_extra_details,
     RegistryOperation.RegQueryKey.name: get_registry_query_or_enum_key_extra_details,
+    RegistryOperation.RegSetValue.name: get_registry_set_value_extra_details,
     RegistryOperation.RegQueryValue.name: get_registry_query_or_enum_value_extra_details,
     RegistryOperation.RegEnumValue.name: get_registry_query_or_enum_value_extra_details,
     RegistryOperation.RegEnumKey.name: get_registry_query_or_enum_key_extra_details,
+    RegistryOperation.RegSetInfoKey.name: get_registry_set_info_key_extra_details,
+    RegistryOperation.RegDeleteKey.name: get_registry_delete_key_or_value_extra_details,
+    RegistryOperation.RegDeleteValue.name: get_registry_delete_key_or_value_extra_details,
+    RegistryOperation.RegLoadKey.name: get_registry_load_or_rename_extra_details,
+    RegistryOperation.RegRenameKey.name: get_registry_load_or_rename_extra_details,
+    RegistryOperation.RegQueryMultipleValueKey.name: get_registry_query_multiple_value_extra_details,
+    RegistryOperation.RegSetKeySecurity.name: get_registry_set_key_security_extra_details,
+    RegistryOperation.RegQueryKeySecurity.name: get_registry_query_key_security_extra_details,
 }
 
 
@@ -213,7 +272,8 @@ def get_registry_event_details(io, metadata, event, extra_detail_io):
     details_info = dict()  # information that is needed by the extra details structure
 
     if event.operation in [RegistryOperation.RegLoadKey.name, RegistryOperation.RegRenameKey.name]:
-        io.seek(2, 1)  # Unknown field
+        details_info["new_path_info"] = read_detail_string_info(io)
+        extra_detail_io = io  # the new path is a part of the details structure
     elif event.operation in [RegistryOperation.RegOpenKey.name, RegistryOperation.RegCreateKey.name]:
         io.seek(2, 1)  # Unknown field
         details_info["desired_access"] = read_u32(io)
@@ -221,12 +281,24 @@ def get_registry_event_details(io, metadata, event, extra_detail_io):
         io.seek(2, 1)  # Unknown field
         details_info["length"] = read_u32(io)
         details_info["information_class"] = read_u32(io)
-    elif event.operation in [RegistryOperation.RegSetValue.name, RegistryOperation.RegEnumValue.name,
-                             RegistryOperation.RegEnumKey.name, RegistryOperation.RegSetInfoKey.name]:
+    elif event.operation in [RegistryOperation.RegEnumValue.name, RegistryOperation.RegEnumKey.name]:
         io.seek(2, 1)  # Unknown field
         details_info["length"] = read_u32(io)
         details_info["index"] = read_u32(io)
         details_info["information_class"] = read_u32(io)
+    elif event.operation == RegistryOperation.RegSetInfoKey.name:
+        io.seek(2, 1)  # Unknown field
+        details_info["key_set_information_class"] = read_u32(io)
+        io.seek(4, 1)  # Unknown field
+        details_info["length"] = read_u16(io)
+        io.seek(2, 1)  # Unknown field
+        extra_detail_io = io  # For RegSetInfoKey the data is in the details structure
+    elif event.operation == RegistryOperation.RegSetValue.name:
+        io.seek(2, 1)  # Unknown field
+        details_info["reg_type"] = read_u32(io)
+        details_info["length"] = read_u32(io)
+        details_info["data_length"] = read_u32(io)
+        extra_detail_io = io  # For RegSetValue the data is in the details structure
 
     event.path = read_detail_string(io, path_info)
 

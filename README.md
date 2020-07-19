@@ -86,7 +86,7 @@ Event("dwm.exe", 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:
 
 ### File Format
 
-For the raw binary format of PML files you can refer to the [docs](docs/PML%20Format.md), or take a look at the source code in [construct_logs_format.py](procmon_parser/construct_logs_format.py).
+For the raw binary format of PML files you can refer to the [docs](docs/PML%20Format.md), or take a look at the source code in [stream_logs_format.py](procmon_parser/stream_logs_format.py).
 
 Currently the parser is only tested with PML files saved by *Procmon.exe* of versions v3.4.0 or higher.
 
@@ -118,25 +118,25 @@ The PML format is very complex so there are some features that are not supported
         - [x] Process Start
         - [ ] Process Statistics
         - [ ] System Statistics
-    - [ ] Registry operations
+    - [x] Registry operations
         - [x] RegOpenKey
-        - [ ] RegCreateKey
-        - [ ] RegCloseKey
+        - [x] RegCreateKey
+        - [x] RegCloseKey
         - [x] RegQueryKey
-        - [ ] RegSetValue
+        - [x] RegSetValue
         - [x] RegQueryValue
         - [x] RegEnumValue
         - [x] RegEnumKey
-        - [ ] RegSetInfoKey
-        - [ ] RegDeleteKey
-        - [ ] RegDeleteValue
-        - [ ] RegFlushKey
-        - [ ] RegLoadKey
-        - [ ] RegUnloadKey
-        - [ ] RegRenameKey
-        - [ ] RegQueryMultipleValueKey
-        - [ ] RegSetKeySecurity
-        - [ ] RegQueryKeySecurity
+        - [x] RegSetInfoKey
+        - [x] RegDeleteKey
+        - [x] RegDeleteValue
+        - [x] RegFlushKey
+        - [x] RegLoadKey
+        - [x] RegUnloadKey
+        - [x] RegRenameKey
+        - [x] RegQueryMultipleValueKey
+        - [x] RegSetKeySecurity
+        - [x] RegQueryKeySecurity
     - [ ] Filesystem Operations
     - [ ] Profiling Operations
 

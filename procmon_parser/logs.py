@@ -184,11 +184,21 @@ class Event(object):
                 if key in details:
                     details[key] = '{:,}'.format(details[key])
 
-            removed_keys = ["LastWriteTime", "TitleIndex", "MaxNameLen", "MaxValueNameLen", "MaxValueDataLen",
+            hexa_formatted_keys = ["HandleTags", "UserFlags", "Wow64Flags"]
+            for key in hexa_formatted_keys:
+                if key in details:
+                    details[key] = "0x{:x}".format(details[key])
+
+            removed_keys = ["TitleIndex", "MaxNameLen", "MaxValueNameLen", "MaxValueDataLen",
                             "ClassOffset", "ClassLength", "MaxClassLen"]
             for key in removed_keys:
                 if key in details:
                     del details[key]
+            if "LastWriteTime" in details:
+                if self.operation == "RegSetInfoKey":
+                    details["LastWriteTime"] = self._strftime_date(details["LastWriteTime"])
+                else:
+                    del details["LastWriteTime"]
 
             if details.get("Type", '') == "REG_BINARY" and "Data" in details:
                 binary_ascii = binascii.b2a_hex(details["Data"]).decode('ascii').upper()
@@ -205,9 +215,6 @@ class Event(object):
                 del details["Name"]
             elif self.operation == "RegQueryKey" and details["Query"] == "Name" and "Name" in details:
                 del details["Name"]
-
-            if "HandleTags" in details:
-                details["HandleTags"] = "0x{:x}".format(details["HandleTags"])
 
         return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 

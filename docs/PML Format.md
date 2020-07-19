@@ -159,5 +159,5 @@ This is the array of all the captured events. Each event has the information nee
 
 Every event has a different detail structure, based on the operation. The detail structure contains the *path* value, the *category* value and the *detail* value of the event. There are something like 100+ operation and sub operation types so most of them are still unknown. 
 
-All of the detail structures that are known are described in [construct_logs_details_format.py](../procmon_parser/construct_logs_details_format.py).
+All of the detail structures that are known are described in [stream_logs_details_format.py](../procmon_parser/stream_logs_details_format.py).
 

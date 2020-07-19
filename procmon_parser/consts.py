@@ -3,6 +3,7 @@ Python types for constant values in Procmon
 """
 
 import enum
+from collections import OrderedDict
 
 
 class RuleAction(enum.IntEnum):
@@ -484,55 +485,55 @@ def get_error_message(error_value):
     return _ErrorCodeMessages.get(error_value, "0x{:X}".format(error_value))
 
 
-COMMON_ACCESS_MASK_STRINGS = {
-    0x10000: "Delete",
-    0x20000: "Read Control",
-    0x40000: "Write DAC",
-    0x80000: "Write Owner",
-    0x100000: "Synchronize",
-    0x1000000: "Access System Security",
-    0x2000000: "Maximum Allowed",
-}
+COMMON_ACCESS_MASK_STRINGS = OrderedDict([
+    (0x10000, "Delete"),
+    (0x20000, "Read Control"),
+    (0x40000, "Write DAC"),
+    (0x80000, "Write Owner"),
+    (0x100000, "Synchronize"),
+    (0x1000000, "Access System Security"),
+    (0x2000000, "Maximum Allowed"),
+])
 
 
 REGISTRY_ACCESS_MASK_MAPPING = [0x20019, 0x20006, 0x20019, 0xf003f]  # used in MapGenericMask
-REGISTRY_ACCESS_MASK_STRINGS = {
-    0xf003f: "All Access",
-    0x2001f: "Read/Write",
-    0x20019: "Read",
-    0x20006: "Write",
-    #0x20019: "Execute",
-    0x1: "Query Value",
-    0x2: "Set Value",
-    0x4: "Create Sub Key",
-    0x8: "Enumerate Sub Keys",
-    0x10: "Notify",
-    0x20: "Create Link",
-    0x300: "WOW64_Res",
-    0x200: "WOW64_32Key",
-    0x100: "WOW64_64Key",
-}
+REGISTRY_ACCESS_MASK_STRINGS = OrderedDict([
+    (0xf003f, "All Access"),
+    (0x2001f, "Read/Write"),
+    (0x20019, "Read"),
+    (0x20006, "Write"),
+    #(0x20019: "Execute"),
+    (0x1, "Query Value"),
+    (0x2, "Set Value"),
+    (0x4, "Create Sub Key"),
+    (0x8, "Enumerate Sub Keys"),
+    (0x10, "Notify"),
+    (0x20, "Create Link"),
+    (0x300, "WOW64_Res"),
+    (0x200, "WOW64_32Key"),
+    (0x100, "WOW64_64Key"),
+])
 REGISTRY_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
 
-FILE_ACCESS_MASK_STRINGS = {
-    0x1f01ff: "All Access",
-    0x1201bf: "Generic Read/Write/Execute",
-    0x12019f: "Generic Read/Write",
-    0x1200a9: "Generic Read/Execute",
-    0x1201b6: "Generic Write/Execute",
-    0x120089: "Generic Read",
-    0x120116: "Generic Write",
-    0x1200a0: "Generic Execute",
-    0x1: "Read Data/List Directory",
-    0x2: "Write Data/Add File",
-    0x4: "Append Data/Add Subdirectory/Create Pipe Instance",
-    0x8: "Read EA",
-    0x10: "Write EA",
-    0x20: "Execute/Traverse",
-    0x40: "Delete Child",
-    0x80: "Read Attributes",
-    0x100: "Write Attributes",
-}
+FILE_ACCESS_MASK_STRINGS = OrderedDict([
+    (0x1f01ff, "All Access"),
+    (0x1201bf, "Generic Read/Write/Execute"),
+    (0x12019f, "Generic Read/Write"),
+    (0x1200a9, "Generic Read/Execute"),
+    (0x1201b6, "Generic Write/Execute"),
+    (0x120089, "Generic Read"),
+    (0x120116, "Generic Write"),
+    (0x1200a0, "Generic Execute"),
+    (0x1, "Read Data/List Directory"),
+    (0x2, "Write Data/Add File"),
+    (0x4, "Append Data/Add Subdirectory/Create Pipe Instance"),
+    (0x8, "Read EA"),
+    (0x10, "Write EA"),
+    (0x20, "Execute/Traverse"),
+    (0x40, "Delete Child"),
+    (0x80, "Read Attributes"),
+    (0x100, "Write Attributes"),
+])
 FILE_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
 
 
@@ -557,6 +558,8 @@ def _get_access_mask_string(access_mask, mappings, access_strings):
             accesses.append(string)
             access_mask &= ~value
 
+    if len(accesses) == 0:
+        return "None 0x{:x}".format(access_mask)
     return ", ".join(accesses)
 
 
@@ -601,6 +604,13 @@ class RegistryKeyInformationClass(enum.IntEnum):
     HandleTags = 7
     Trust = 8
     Layer = 9
+
+
+RegistryKeySetInformationClass = {
+    0: "KeyWriteTimeInformation",
+    1: "KeyWow64FlagsInformation",
+    5: "KeySetHandleTagsInformation",
+}
 
 
 class RegistryDisposition(enum.IntEnum):
