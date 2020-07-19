@@ -119,7 +119,7 @@ The PML format is very complex so there are some features that are not supported
         - [ ] Process Statistics
         - [ ] System Statistics
     - [ ] Registry operations
-        - [ ] RegOpenKey
+        - [x] RegOpenKey
         - [ ] RegCreateKey
         - [ ] RegCloseKey
         - [x] RegQueryKey

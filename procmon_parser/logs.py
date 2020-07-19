@@ -179,7 +179,7 @@ class Event(object):
         elif self.operation == ProcessOperation.Process_Start.name:
             details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
         elif "Reg" in self.operation:
-            commas_formatted_keys = ["Length", "SubKeys", "Values"]
+            commas_formatted_keys = ["Length", "SubKeys", "Values", "Index"]
             for key in commas_formatted_keys:
                 if key in details:
                     details[key] = '{:,}'.format(details[key])

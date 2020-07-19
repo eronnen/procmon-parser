@@ -3,7 +3,7 @@ from io import BytesIO
 
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass, \
-    RegistryKeyInformationClass
+    RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_pvoid, read_duration, \
     read_utf16_multisz, sizeof_pvoid, read_u64, read_filetime
 
@@ -174,7 +174,33 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
         event.details["Data"] = read_registry_data(extra_detail_io, reg_type, length_value)
 
 
+def get_registry_open_or_create_key_extra_details(metadata, event, extra_detail_io, details_info):
+    event.category = "Read"
+    event.details["Desired Access"] = get_registry_access_mask_string(details_info["desired_access"])
+    if not extra_detail_io:
+        return
+
+    if event.details["Desired Access"] == "Maximum Allowed":
+        event.details["Granted Access"] = get_registry_access_mask_string(read_u32(extra_detail_io))
+    else:
+        extra_detail_io.seek(4, 1)
+
+    disposition = read_u32(extra_detail_io)
+
+    # I really have no idea why they do this logic :(
+    has_more_data = extra_detail_io.read(1)
+    if has_more_data != '':
+        try:
+            event.details["Disposition"] = RegistryDisposition(disposition).name
+            if event.details["Disposition"] == RegistryDisposition.REG_CREATED_NEW_KEY.name:
+                event.category = "Write"
+        except ValueError:
+            pass
+
+
 RegistryExtraDetailsHandler = {
+    RegistryOperation.RegOpenKey.name: get_registry_open_or_create_key_extra_details,
+    RegistryOperation.RegCreateKey.name: get_registry_open_or_create_key_extra_details,
     RegistryOperation.RegQueryKey.name: get_registry_query_or_enum_key_extra_details,
     RegistryOperation.RegQueryValue.name: get_registry_query_or_enum_value_extra_details,
     RegistryOperation.RegEnumValue.name: get_registry_query_or_enum_value_extra_details,
@@ -189,7 +215,8 @@ def get_registry_event_details(io, metadata, event, extra_detail_io):
     if event.operation in [RegistryOperation.RegLoadKey.name, RegistryOperation.RegRenameKey.name]:
         io.seek(2, 1)  # Unknown field
     elif event.operation in [RegistryOperation.RegOpenKey.name, RegistryOperation.RegCreateKey.name]:
-        io.seek(6, 1)  # Unknown field
+        io.seek(2, 1)  # Unknown field
+        details_info["desired_access"] = read_u32(io)
     elif event.operation in [RegistryOperation.RegQueryKey.name, RegistryOperation.RegQueryValue.name]:
         io.seek(2, 1)  # Unknown field
         details_info["length"] = read_u32(io)

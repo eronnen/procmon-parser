@@ -52,6 +52,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "Thread Exit",
         "Load Image",
 
+        "RegOpenKey",
+        "RegCreateKey",
         "RegQueryKey",
         "RegQueryValue",
         "RegEnumValue",
@@ -59,6 +61,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
     ],
 
     Column.CATEGORY: [
+        "RegOpenKey",
+        "RegCreateKey",
         "RegQueryKey",
         "RegQueryValue",
         "RegEnumValue",
