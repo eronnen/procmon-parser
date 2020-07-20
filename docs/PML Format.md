@@ -151,13 +151,14 @@ This is the array of all the captured events. Each event has the information nee
 | 0x24   | Uint32    | The value of the event result.                               |
 | 0x28   | Uint16    | The depth of the captured stack trace.                       |
 | 0x2A   | Uint16    | Unknown                                                      |
-| 0x2C   | Uint32    | The size of the specific detail structure (contains path and other details) |
-| 0x30   | Uint32    | The offset from the start of the event to extra detail structure. |
+| 0x2C   | Uint32    | The size of the specific **detail** structure (contains path and other details) |
+| 0x30   | Uint32    | The offset from the start of the event to **extra detail** structure (not necessarily continuous with this structure). |
 | 0x34   | PVoid[]   | Array of the addresses of the stack frames.                  |
+| 0x34+n | Byte[]    | A **detail** structure based on the operation type.          |
 
 #### Detail Structures
 
-Every event has a different detail structure, based on the operation. The detail structure contains the *path* value, the *category* value and the *detail* value of the event. There are something like 100+ operation and sub operation types so most of them are still unknown. 
+Every event has a different **detail** structure at the end of the structure, based on the operation. The detail structure contains the *path* value, the *category* value and the *detail* value of the event. There are something like 50+ operation and sub operation types so most of them are still unknown.  In addition, an event can have an **extra detail** event, which can contain even more detail values.
 
 All of the detail structures that are known are described in [stream_logs_details_format.py](../procmon_parser/stream_logs_details_format.py).
 

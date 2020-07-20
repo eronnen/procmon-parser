@@ -361,12 +361,33 @@ def get_process_started_details(io, metadata, event, extra_detail_io):
     event.details["Environment"] = read_utf16_multisz(io, environment_character_count * 2)
 
 
+def get_process_exit_details(io, metadata, event, extra_details_io):
+    event.details["Exit Status"] = read_u32(io)
+    kernel_time = read_duration(io)
+    user_time = read_duration(io)
+    working_set = read_u64(io)
+    peak_working_set = read_u64(io)
+    private_bytes = read_u64(io)
+    peak_private_bytes = read_u64(io)
+
+    event.details["User Time"] = user_time
+    event.details["Kernel Time"] = kernel_time
+    event.details["Private Bytes"] = private_bytes
+    event.details["Peak Private Bytes"] = peak_private_bytes
+    event.details["Working Set"] = working_set
+    event.details["Peak Working Set"] = peak_working_set
+
+
 def get_load_image_details(io, metadata, event, extra_detail_io):
     event.details["Image Base"] = read_pvoid(io, metadata.is_64bit)
     event.details["Image Size"] = read_u32(io)
     path_info = read_detail_string_info(io)
     io.seek(2, 1)  # Unknown field
     event.path = read_detail_string(io, path_info)
+
+
+def get_thread_create_details(io, metadata, event, extra_detail_io):
+    event.details["Thread ID"] = read_u32(io)
 
 
 def get_thread_exit_details(io, metadata, event, extra_detail_io):
@@ -381,9 +402,12 @@ def get_thread_exit_details(io, metadata, event, extra_detail_io):
 ProcessSpecificOperationHandler = {
     ProcessOperation.Process_Defined.name: get_process_created_details,
     ProcessOperation.Process_Create.name: get_process_created_details,
+    ProcessOperation.Process_Exit.name: get_process_exit_details,
+    ProcessOperation.Thread_Create.name: get_thread_create_details,
     ProcessOperation.Thread_Exit.name: get_thread_exit_details,
     ProcessOperation.Load_Image.name: get_load_image_details,
     ProcessOperation.Process_Start.name: get_process_started_details,
+    ProcessOperation.Process_Statistics.name: get_process_exit_details,
 }
 
 

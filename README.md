@@ -94,8 +94,7 @@ Currently the parser is only tested with PML files saved by *Procmon.exe* of ver
 
 The PML format is very complex so there are some features that are not supported yet:
 - [ ] Getting the IRP name of the operation.
-- [ ] Category column is not supported yet.
-- [ ] Detail column, which contains different information about each operation type, is supported only for some of the operations:
+- [ ] Category column and Detail column, which contains different information about each operation type, is supported only for some of the operations:
     - [x] Network operations 
         - [x] UDP/TCP Unknown
         - [x] UDP/TCP Other
@@ -110,13 +109,13 @@ The PML format is very complex so there are some features that are not supported
     - [ ] Process operations
         - [x] Process Defined
         - [x] Process Create
-        - [ ] Process Exit
-        - [ ] Thread Create
+        - [x] Process Exit
+        - [x] Thread Create
         - [x] Thread Exit
         - [x] Load Image
-        - [ ] Thread Profile
+        - [x] Thread Profile
         - [x] Process Start
-        - [ ] Process Statistics
+        - [x] Process Statistics
         - [ ] System Statistics
     - [x] Registry operations
         - [x] RegOpenKey
@@ -138,9 +137,43 @@ The PML format is very complex so there are some features that are not supported
         - [x] RegSetKeySecurity
         - [x] RegQueryKeySecurity
     - [ ] Filesystem Operations
+        - [ ] VolumeDismount
+        - [ ] VolumeMount
+        - [ ] CreateFileMapping
+        - [ ] CreateFile
+        - [ ] CreatePipe
+        - [ ] ReadFile
+        - [ ] WriteFile
+        - [ ] QueryInformationFile
+        - [ ] SetInformationFile
+        - [ ] QueryEAFile
+        - [ ] SetEAFile
+        - [ ] FlushBuffersFile
+        - [ ] QueryVolumeInformation
+        - [ ] SetVolumeInformation
+        - [ ] DirectoryControl
+        - [ ] FileSystemControl
+        - [ ] DeviceIoControl
+        - [ ] InternalDeviceIoControl
+        - [ ] Shutdown
+        - [ ] LockUnlockFile
+        - [ ] CloseFile
+        - [ ] CreateMailSlot
+        - [ ] QuerySecurityFile
+        - [ ] SetSecurityFile
+        - [ ] Power
+        - [ ] SystemControl
+        - [ ] DeviceChange
+        - [ ] QueryFileQuota
+        - [ ] SetFileQuota
+        - [ ] PlugAndPlay
     - [ ] Profiling Operations
+        - [ ] Thread Profiling
+        - [ ] Process Profiling
+        - [ ] Debug Output Profiling
 
-Pull requests to support these missing features are very welcome :)
+These are a lot of operation types so I didn't manage to get to all of them yet :(<br/>
+If there is an unsupported operation which you think its details are interesting, please let me know :) 
 
 ### Tests
 

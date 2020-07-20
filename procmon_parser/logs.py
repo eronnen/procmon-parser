@@ -262,9 +262,6 @@ class Event(object):
 
 
 class PMLStructReader(object):
-    def __init__(self, f):
-        self._stream = f
-
     @property
     def header(self):
         raise NotImplementedError()

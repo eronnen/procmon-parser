@@ -192,9 +192,9 @@ def read_event(io, metadata):
     stream = BytesIO(io.read(stacktrace_depth * sizeof_pvoid(metadata.is_64bit)))
     stacktrace = [read_pvoid(stream, metadata.is_64bit) for _ in range(stacktrace_depth)]
 
-    extra_details = OrderedDict()
+    details = OrderedDict()
     event = Event(process=process, tid=tid, event_class=event_class, operation=operation, duration=duration, date=date,
-                  result=result, stacktrace=stacktrace, category='', path='', details=extra_details)
+                  result=result, stacktrace=stacktrace, category='', path='', details=details)
 
     details_stream = BytesIO(io.read(details_size))
     extra_details_stream = None
@@ -215,7 +215,7 @@ def read_event(io, metadata):
 
 class PMLStreamReader(PMLStructReader):
     def __init__(self, f):
-        super(PMLStreamReader, self).__init__(f)
+        self._stream = f
         self._header = Header(self._stream)
         self._stream.seek(self.header.events_offsets_array_offset)
         self._events_offsets = EventOffsetsArray(

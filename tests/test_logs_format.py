@@ -2,7 +2,7 @@
 import re
 from six import PY2
 from six.moves import zip_longest
-from procmon_parser.consts import Column, ColumnToOriginalName
+from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
 
 
 SUPPORTED_COLUMNS = [
@@ -35,74 +35,14 @@ SUPPORTED_COLUMNS = [
 
 PARTIAL_SUPPORTED_COLUMNS = {
     Column.DETAIL: [
-        "TCP Unknown", "UDP Unknown",
-        "TCP Other", "UDP Other",
-        "TCP Send", "UDP Send",
-        "TCP Receive", "UDP Receive",
-        "TCP Accept", "UDP Accept",
-        "TCP Connect", "UDP Connect",
-        "TCP Disconnect", "UDP Disconnect",
-        "TCP Reconnect", "UDP Reconnect",
-        "TCP Retransmit", "UDP Retransmit",
-        "TCP TCPCopy", "UDP TCPCopy",
 
-        "Process Defined",
-        "Process Create",
-        "Process Start",
-        "Thread Exit",
-        "Load Image",
-
-        "RegOpenKey",
-        "RegCreateKey",
-        "RegCloseKey",
-        "RegQueryKey",
-        "RegSetValue",
-        "RegQueryValue",
-        "RegEnumValue",
-        "RegEnumKey",
-        "RegSetInfoKey",
-        "RegDeleteKey",
-        "RegDeleteValue",
-        "RegFlushKey",
-        "RegLoadKey",
-        "RegUnloadKey",
-        "RegRenameKey",
-        "RegQueryMultipleValueKey",
-        "RegSetKeySecurity",
-        "RegQueryKeySecurity",
-    ],
+    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
+        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
 
     Column.CATEGORY: [
-        "TCP Unknown", "UDP Unknown",
-        "TCP Other", "UDP Other",
-        "TCP Send", "UDP Send",
-        "TCP Receive", "UDP Receive",
-        "TCP Accept", "UDP Accept",
-        "TCP Connect", "UDP Connect",
-        "TCP Disconnect", "UDP Disconnect",
-        "TCP Reconnect", "UDP Reconnect",
-        "TCP Retransmit", "UDP Retransmit",
-        "TCP TCPCopy", "UDP TCPCopy",
 
-        "RegOpenKey",
-        "RegCreateKey",
-        "RegCloseKey",
-        "RegSetValue",
-        "RegQueryKey",
-        "RegQueryValue",
-        "RegEnumValue",
-        "RegEnumKey",
-        "RegSetInfoKey",
-        "RegDeleteKey",
-        "RegDeleteValue",
-        "RegFlushKey",
-        "RegLoadKey",
-        "RegUnloadKey",
-        "RegRenameKey",
-        "RegQueryMultipleValueKey",
-        "RegSetKeySecurity",
-        "RegQueryKeySecurity",
-    ]
+    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
+        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
 }
 
 
