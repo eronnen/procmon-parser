@@ -3,6 +3,7 @@ Python types for constant values in Procmon
 """
 
 import enum
+from collections import OrderedDict
 
 
 class RuleAction(enum.IntEnum):
@@ -482,3 +483,136 @@ _ErrorCodeMessages = {
 
 def get_error_message(error_value):
     return _ErrorCodeMessages.get(error_value, "0x{:X}".format(error_value))
+
+
+COMMON_ACCESS_MASK_STRINGS = OrderedDict([
+    (0x10000, "Delete"),
+    (0x20000, "Read Control"),
+    (0x40000, "Write DAC"),
+    (0x80000, "Write Owner"),
+    (0x100000, "Synchronize"),
+    (0x1000000, "Access System Security"),
+    (0x2000000, "Maximum Allowed"),
+])
+
+
+REGISTRY_ACCESS_MASK_MAPPING = [0x20019, 0x20006, 0x20019, 0xf003f]  # used in MapGenericMask
+REGISTRY_ACCESS_MASK_STRINGS = OrderedDict([
+    (0xf003f, "All Access"),
+    (0x2001f, "Read/Write"),
+    (0x20019, "Read"),
+    (0x20006, "Write"),
+    #(0x20019: "Execute"),
+    (0x1, "Query Value"),
+    (0x2, "Set Value"),
+    (0x4, "Create Sub Key"),
+    (0x8, "Enumerate Sub Keys"),
+    (0x10, "Notify"),
+    (0x20, "Create Link"),
+    (0x300, "WOW64_Res"),
+    (0x200, "WOW64_32Key"),
+    (0x100, "WOW64_64Key"),
+])
+REGISTRY_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
+
+FILE_ACCESS_MASK_STRINGS = OrderedDict([
+    (0x1f01ff, "All Access"),
+    (0x1201bf, "Generic Read/Write/Execute"),
+    (0x12019f, "Generic Read/Write"),
+    (0x1200a9, "Generic Read/Execute"),
+    (0x1201b6, "Generic Write/Execute"),
+    (0x120089, "Generic Read"),
+    (0x120116, "Generic Write"),
+    (0x1200a0, "Generic Execute"),
+    (0x1, "Read Data/List Directory"),
+    (0x2, "Write Data/Add File"),
+    (0x4, "Append Data/Add Subdirectory/Create Pipe Instance"),
+    (0x8, "Read EA"),
+    (0x10, "Write EA"),
+    (0x20, "Execute/Traverse"),
+    (0x40, "Delete Child"),
+    (0x80, "Read Attributes"),
+    (0x100, "Write Attributes"),
+])
+FILE_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
+
+
+def _get_access_mask_string(access_mask, mappings, access_strings):
+    """Return a string that describes the access mask.
+    :param access_mask: the access mask value
+    :param mappings: the mapping that is given to MapGenericMask
+    :param access_strings: the string for every mask option
+    """
+    if access_mask & 0x80000000:
+        access_mask |= mappings[0]
+    if access_mask & 0x40000000:
+        access_mask |= mappings[1]
+    if access_mask & 0x20000000:
+        access_mask |= mappings[2]
+    if access_mask & 0x10000000:
+        access_mask |= mappings[3]
+
+    accesses = []
+    for value, string in access_strings.items():
+        if access_mask & value == value:
+            accesses.append(string)
+            access_mask &= ~value
+
+    if len(accesses) == 0:
+        return "None 0x{:x}".format(access_mask)
+    return ", ".join(accesses)
+
+
+def get_registry_access_mask_string(access_mask):
+    return _get_access_mask_string(access_mask, REGISTRY_ACCESS_MASK_MAPPING, REGISTRY_ACCESS_MASK_STRINGS)
+
+
+class RegistryTypes(enum.IntEnum):
+    REG_NONE = 0  # No value type
+    REG_SZ = 1  # Unicode nul terminated string
+    REG_EXPAND_SZ = 2  # Unicode nul terminated string
+    REG_BINARY = 3  # Free form binary
+    REG_DWORD = 4  # 32-bit number
+    REG_DWORD_LITTLE_ENDIAN = 4  # 32-bit number (same as REG_DWORD)
+    REG_DWORD_BIG_ENDIAN = 5  # 32-bit number
+    REG_LINK = 6  # Symbolic Link (unicode)
+    REG_MULTI_SZ = 7  # Multiple Unicode strings
+    REG_RESOURCE_LIST = 8  # Resource list in the resource map
+    REG_FULL_RESOURCE_DESCRIPTOR = 9  # Resource list in the hardware description
+    REG_RESOURCE_REQUIREMENTS_LIST = 10
+    REG_QWORD = 11  # 64-bit number
+    REG_QWORD_LITTLE_ENDIAN = 11  # 64-bit number (same as REG_QWORD)
+
+
+class RegistryKeyValueInformationClass(enum.IntEnum):
+    KeyValueBasicInformation = 0,
+    KeyValueFullInformation = 1,
+    KeyValuePartialInformation = 2
+    KeyValueFullInformationAlign64 = 3,
+    KeyValuePartialInformationAlign64 = 4,
+    KeyValueLayerInformation = 5,
+
+
+class RegistryKeyInformationClass(enum.IntEnum):
+    Basic = 0
+    Node = 1
+    Full = 2
+    Name = 3
+    Cached = 4
+    Flags = 5
+    Virtualization = 6
+    HandleTags = 7
+    Trust = 8
+    Layer = 9
+
+
+RegistryKeySetInformationClass = {
+    0: "KeyWriteTimeInformation",
+    1: "KeyWow64FlagsInformation",
+    5: "KeySetHandleTagsInformation",
+}
+
+
+class RegistryDisposition(enum.IntEnum):
+    REG_CREATED_NEW_KEY = 1
+    REG_OPENED_EXISTING_KEY = 2

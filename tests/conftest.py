@@ -42,10 +42,10 @@ def csv_logs_windows10_64bit():
         return zlib.decompress(f.read()).decode('utf-16le')  # I converted the csv file to UTF-16 from windows-1252
 
 
-def get_pml_log_reader(pml_logs, use_construct):
+def get_pml_log_reader(pml_logs):
     pml_stream = BytesIO(pml_logs)
     start = time.time()
-    pml_reader = ProcmonLogsReader(pml_stream, use_construct)
+    pml_reader = ProcmonLogsReader(pml_stream)
     print("\nLoading PML reader took {} seconds\n".format(time.time() - start))
     return pml_reader
 
@@ -61,9 +61,9 @@ def get_csv_log_reader(csv_logs):
     return csv_reader
 
 
-@pytest.fixture(scope='function', params=[False, True])
-def pml_reader_windows7_32bit(pml_logs_windows7_32bit, request):
-    return get_pml_log_reader(pml_logs_windows7_32bit, request.param)
+@pytest.fixture(scope='function')
+def pml_reader_windows7_32bit(pml_logs_windows7_32bit):
+    return get_pml_log_reader(pml_logs_windows7_32bit)
 
 
 @pytest.fixture(scope='function')
@@ -71,9 +71,9 @@ def csv_reader_windows7_32bit(csv_logs_windows7_32bit):
     return get_csv_log_reader(csv_logs_windows7_32bit)
 
 
-@pytest.fixture(scope='function', params=[False, True])
-def pml_reader_windows10_64bit(pml_logs_windows10_64bit, request):
-    return get_pml_log_reader(pml_logs_windows10_64bit, request.param)
+@pytest.fixture(scope='function')
+def pml_reader_windows10_64bit(pml_logs_windows10_64bit):
+    return get_pml_log_reader(pml_logs_windows10_64bit)
 
 
 @pytest.fixture(scope='function')

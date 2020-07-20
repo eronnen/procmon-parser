@@ -2,13 +2,14 @@
 Python types that procmon logs use
 """
 
+import binascii
 import datetime
 import enum
 
 from numpy import timedelta64
 from six import string_types
 
-from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation
+from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation, ColumnToOriginalName
 
 __all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
 
@@ -158,6 +159,11 @@ class Event(object):
             return str(True)
         return "n/a"
 
+    def _get_compatible_csv_operation_name(self):
+        if "<Unknown>" in self.operation:
+            return "<Unknown>"
+        return self.operation.replace('_', ' ')
+
     def _get_compatible_csv_detail_column(self):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
         """
@@ -172,17 +178,55 @@ class Event(object):
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
         elif self.operation == ProcessOperation.Process_Start.name:
             details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
+        elif "Reg" in self.operation:
+            commas_formatted_keys = ["Length", "SubKeys", "Values", "Index"]
+            for key in commas_formatted_keys:
+                if key in details:
+                    details[key] = '{:,}'.format(details[key])
+
+            hexa_formatted_keys = ["HandleTags", "UserFlags", "Wow64Flags"]
+            for key in hexa_formatted_keys:
+                if key in details:
+                    details[key] = "0x{:x}".format(details[key])
+
+            removed_keys = ["TitleIndex", "MaxNameLen", "MaxValueNameLen", "MaxValueDataLen",
+                            "ClassOffset", "ClassLength", "MaxClassLen"]
+            for key in removed_keys:
+                if key in details:
+                    del details[key]
+            if "LastWriteTime" in details:
+                if self.operation == "RegSetInfoKey":
+                    details["LastWriteTime"] = self._strftime_date(details["LastWriteTime"])
+                else:
+                    del details["LastWriteTime"]
+
+            if details.get("Type", '') == "REG_BINARY" and "Data" in details:
+                binary_ascii = binascii.b2a_hex(details["Data"]).decode('ascii').upper()
+                binary_ascii_formatted = ' '.join(binary_ascii[i:i+2] for i in range(0, len(binary_ascii), 2))
+                details["Data"] = binary_ascii_formatted
+            elif details.get("Type", '') == "REG_QWORD" and "Data" in details:
+                details["Data"] = ''  # Procmon doesnt print qword in csv, I don't know why
+            elif details.get("Type", '') == "REG_MULTI_SZ" and "Data" in details:
+                details["Data"] = ', '.join(details["Data"])
+            elif "Data" in details and isinstance(details["Data"], string_types):
+                details["Data"] = "\n;".join(details["Data"].split('\r\n'))  # They add ; before a new line
+
+            if self.operation == "RegQueryValue" and "Name" in details:
+                del details["Name"]
+            elif self.operation == "RegQueryKey" and details["Query"] == "Name" and "Name" in details:
+                del details["Name"]
+
         return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 
     def get_compatible_csv_info(self, first_event_date=None):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
         """
         first_event_date = first_event_date if first_event_date else self.date
-        return {
+        record = {
             Column.DATE_AND_TIME: Event._strftime_date(self.date, True, False),
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
-            Column.OPERATION: self.operation.replace('_', ' '),
+            Column.OPERATION: self._get_compatible_csv_operation_name(),
             Column.RESULT: get_error_message(self.result),
             Column.DETAIL: self._get_compatible_csv_detail_column(),
             Column.SEQUENCE: 'n/a',  # They do it too
@@ -213,11 +257,11 @@ class Event(object):
                 if get_error_message(self.result) != "" else "",
         }
 
+        compatible_record = {ColumnToOriginalName[k]: v for k, v in record.items()}
+        return compatible_record
+
 
 class PMLStructReader(object):
-    def __init__(self, f):
-        self._stream = f
-
     @property
     def header(self):
         raise NotImplementedError()

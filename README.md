@@ -86,7 +86,7 @@ Event("dwm.exe", 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:
 
 ### File Format
 
-For the raw binary format of PML files you can refer to the [docs](docs/PML%20Format.md), or take a look at the source code in [construct_logs_format.py](procmon_parser/construct_logs_format.py).
+For the raw binary format of PML files you can refer to the [docs](docs/PML%20Format.md), or take a look at the source code in [stream_logs_format.py](procmon_parser/stream_logs_format.py).
 
 Currently the parser is only tested with PML files saved by *Procmon.exe* of versions v3.4.0 or higher.
 
@@ -94,8 +94,7 @@ Currently the parser is only tested with PML files saved by *Procmon.exe* of ver
 
 The PML format is very complex so there are some features that are not supported yet:
 - [ ] Getting the IRP name of the operation.
-- [ ] Category column is not supported yet.
-- [ ] Detail column, which contains different information about each operation type, is supported only for some of the operations:
+- [ ] Category column and Detail column, which contains different information about each operation type, is supported only for some of the operations:
     - [x] Network operations 
         - [x] UDP/TCP Unknown
         - [x] UDP/TCP Other
@@ -110,37 +109,71 @@ The PML format is very complex so there are some features that are not supported
     - [ ] Process operations
         - [x] Process Defined
         - [x] Process Create
-        - [ ] Process Exit
-        - [ ] Thread Create
+        - [x] Process Exit
+        - [x] Thread Create
         - [x] Thread Exit
         - [x] Load Image
-        - [ ] Thread Profile
+        - [x] Thread Profile
         - [x] Process Start
-        - [ ] Process Statistics
+        - [x] Process Statistics
         - [ ] System Statistics
-    - [ ] Registry operations
-        - [ ] RegOpenKey
-        - [ ] RegCreateKey
-        - [ ] RegCloseKey
-        - [ ] RegQueryKey
-        - [ ] RegSetValue
-        - [ ] RegQueryValue
-        - [ ] RegEnumValue
-        - [ ] RegEnumKey
-        - [ ] RegSetInfoKey
-        - [ ] RegDeleteKey
-        - [ ] RegDeleteValue
-        - [ ] RegFlushKey
-        - [ ] RegLoadKey
-        - [ ] RegUnloadKey
-        - [ ] RegRenameKey
-        - [ ] RegQueryMultipleValueKey
-        - [ ] RegSetKeySecurity
-        - [ ] RegQueryKeySecurity
+    - [x] Registry operations
+        - [x] RegOpenKey
+        - [x] RegCreateKey
+        - [x] RegCloseKey
+        - [x] RegQueryKey
+        - [x] RegSetValue
+        - [x] RegQueryValue
+        - [x] RegEnumValue
+        - [x] RegEnumKey
+        - [x] RegSetInfoKey
+        - [x] RegDeleteKey
+        - [x] RegDeleteValue
+        - [x] RegFlushKey
+        - [x] RegLoadKey
+        - [x] RegUnloadKey
+        - [x] RegRenameKey
+        - [x] RegQueryMultipleValueKey
+        - [x] RegSetKeySecurity
+        - [x] RegQueryKeySecurity
     - [ ] Filesystem Operations
+        - [ ] VolumeDismount
+        - [ ] VolumeMount
+        - [ ] CreateFileMapping
+        - [ ] CreateFile
+        - [ ] CreatePipe
+        - [ ] ReadFile
+        - [ ] WriteFile
+        - [ ] QueryInformationFile
+        - [ ] SetInformationFile
+        - [ ] QueryEAFile
+        - [ ] SetEAFile
+        - [ ] FlushBuffersFile
+        - [ ] QueryVolumeInformation
+        - [ ] SetVolumeInformation
+        - [ ] DirectoryControl
+        - [ ] FileSystemControl
+        - [ ] DeviceIoControl
+        - [ ] InternalDeviceIoControl
+        - [ ] Shutdown
+        - [ ] LockUnlockFile
+        - [ ] CloseFile
+        - [ ] CreateMailSlot
+        - [ ] QuerySecurityFile
+        - [ ] SetSecurityFile
+        - [ ] Power
+        - [ ] SystemControl
+        - [ ] DeviceChange
+        - [ ] QueryFileQuota
+        - [ ] SetFileQuota
+        - [ ] PlugAndPlay
     - [ ] Profiling Operations
+        - [ ] Thread Profiling
+        - [ ] Process Profiling
+        - [ ] Debug Output Profiling
 
-Pull requests to support these missing features are very welcome :)
+These are a lot of operation types so I didn't manage to get to all of them yet :(<br/>
+If there is an unsupported operation which you think its details are interesting, please let me know :) 
 
 ### Tests
 
