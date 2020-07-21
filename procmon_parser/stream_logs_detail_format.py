@@ -1,13 +1,15 @@
 from collections import namedtuple
-from io import BytesIO
+from struct import error
 
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass, \
     RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass
-from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_pvoid, read_duration, \
-    read_utf16_multisz, sizeof_pvoid, read_u64, read_filetime
 
-PmlMetadata = namedtuple('PmlMetadata', ['is_64bit', 'str_idx', 'process_idx', 'hostname_idx', 'port_idx'])
+from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
+    read_utf16_multisz, read_u64, read_filetime
+
+PmlMetadata = namedtuple('PmlMetadata', ['str_idx', 'process_idx', 'hostname_idx', 'port_idx', 'read_pvoid',
+                                         'sizeof_pvoid', 'should_get_stacktrace', 'should_get_details'])
 
 
 def read_detail_string_info(io):
@@ -59,17 +61,20 @@ def get_network_event_details(io, metadata, event, extra_detail_io):
 def read_registry_data(io, reg_type_name, length=0):
     """Reads registry data (which is present in the Detail column in original Procmon) according to ``reg_type``
     """
-    if reg_type_name == RegistryTypes.REG_DWORD.name:
-        return read_u32(io)
-    elif reg_type_name == RegistryTypes.REG_QWORD.name:
-        return read_u64(io)
-    elif reg_type_name == RegistryTypes.REG_EXPAND_SZ.name or reg_type_name == RegistryTypes.REG_SZ.name:
-        return read_utf16(io)
-    elif reg_type_name == RegistryTypes.REG_BINARY.name:
-        # Assuming the stream ends at the end of the extra detail, so just read everything
-        return io.read(length)
-    elif reg_type_name == RegistryTypes.REG_MULTI_SZ.name:
-        return read_utf16_multisz(io, length)
+    try:
+        if reg_type_name == RegistryTypes.REG_DWORD.name:
+            return read_u32(io)
+        elif reg_type_name == RegistryTypes.REG_QWORD.name:
+            return read_u64(io)
+        elif reg_type_name == RegistryTypes.REG_EXPAND_SZ.name or reg_type_name == RegistryTypes.REG_SZ.name:
+            return read_utf16(io)
+        elif reg_type_name == RegistryTypes.REG_BINARY.name:
+            # Assuming the stream ends at the end of the extra detail, so just read everything
+            return io.read(length)
+        elif reg_type_name == RegistryTypes.REG_MULTI_SZ.name:
+            return read_utf16_multisz(io, length)
+    except error:
+        return ''
 
     return ''
 
@@ -303,7 +308,7 @@ def get_registry_event_details(io, metadata, event, extra_detail_io):
     event.path = read_detail_string(io, path_info)
 
     # Get the extra details structure
-    if event.operation in RegistryExtraDetailsHandler:
+    if metadata.should_get_details and event.operation in RegistryExtraDetailsHandler:
         RegistryExtraDetailsHandler[event.operation](metadata, event, extra_detail_io, details_info)
 
 
@@ -330,7 +335,7 @@ def get_filesystem_event_details(io, metadata, event, extra_detail_io):
         except ValueError:
             event.operation += " <Unknown>"
 
-    io.seek(1 + sizeof_pvoid(metadata.is_64bit) * 5 + 0x16, 1)  # Unknown fields
+    io.seek(1 + metadata.sizeof_pvoid * 5 + 0x16, 1)  # Unknown fields
     path_info = read_detail_string_info(io)
     io.seek(2, 1)  # Unknown fields
     event.path = read_detail_string(io, path_info)
@@ -379,7 +384,7 @@ def get_process_exit_details(io, metadata, event, extra_details_io):
 
 
 def get_load_image_details(io, metadata, event, extra_detail_io):
-    event.details["Image Base"] = read_pvoid(io, metadata.is_64bit)
+    event.details["Image Base"] = metadata.read_pvoid(io)
     event.details["Image Size"] = read_u32(io)
     path_info = read_detail_string_info(io)
     io.seek(2, 1)  # Unknown field

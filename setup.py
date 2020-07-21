@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="procmon-parser",
-    version="0.3.1",
+    version="0.3.3",
     author="Ely Ronnen",
     author_email="elyronnen@gmail.com",
     description="Parser to Procmon configuration and log files formats",
@@ -18,7 +18,6 @@ setuptools.setup(
         "enum34;python_version<'3.4'",
         "construct>=2.10.54",
         "six",
-        "numpy",
         "ipaddress;python_version<'3'",
     ],
     classifiers=[

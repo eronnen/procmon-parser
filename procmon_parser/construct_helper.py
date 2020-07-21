@@ -1,7 +1,6 @@
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
-    GreedyBytes, If, Struct, Int32ul, Int64ul, Check, CheckError, RepeatUntil, ExprAdapter, NullTerminated, Computed, \
-    NullStripped
-from numpy import datetime64, timedelta64, uint64
+    GreedyBytes, If, Check, CheckError
+from six import text_type, string_types
 
 
 # ===============================================================================
@@ -30,10 +29,22 @@ class ListAdapter(Adapter):
         return obj
 
 
+class UnicodeStringAdapter(Adapter):
+    def _decode(self, obj, context, path):
+        return obj
+
+    def _encode(self, obj, context, path):
+        if not isinstance(obj, string_types):
+            raise TypeError("Expected string, got {}".format(type(obj)))
+        return text_type(obj)
+
+
 def FixedUTF16String(size_func):
     """At parse time parses a UTF16 string with a known size, and at build time builds the string with its given size.
     """
-    return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"), GreedyString("UTF_16_le"))
+    return UnicodeStringAdapter(
+        IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"), GreedyString("UTF_16_le"))
+    )
 
 
 def FixedUTF16CString(size_func, ctx_str_name):
@@ -41,8 +52,10 @@ def FixedUTF16CString(size_func, ctx_str_name):
     the string with its given size.
     If the given string is empty at build time, then build nothing instead of a single null character.
     """
-    return IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"),
-                      If(lambda ctx: ctx[ctx_str_name], CString("UTF_16_le")))
+    return UnicodeStringAdapter(
+        IfThenElse(lambda ctx: ctx._parsing, PaddedString(size_func, "UTF_16_le"),
+                   If(lambda ctx: ctx[ctx_str_name], CString("UTF_16_le")))
+    )
 
 
 def FixedArray(size_func, subcon):
@@ -56,75 +69,6 @@ def FixedBytes(size_func):
     """At parse time parses a fixed sized byte array, and at build time builds the byte array with its given size.
     """
     return IfThenElse(lambda this: this._parsing, Bytes(size_func), GreedyBytes)
-
-
-class UTF16EncodedBestEffort(Adapter):
-    def _decode(self, obj, context, path):
-        return obj.decode("UTF-16le", "replace")
-
-    def _encode(self, obj, context, path):
-        if obj == u"":
-            return b""
-        return obj.encode("UTF-16le", "replace")
-
-
-def PaddedUTF16StringBestEffort(length):
-    return UTF16EncodedBestEffort(FixedSized(length, NullStripped(GreedyBytes, pad="\x00\x00")))
-
-
-FixedNullTerminatedUTF16String = Struct(  # I don't use PascalString because it's a null terminated string.
-    "string_size" / Int32ul,
-    "string" / IfThenElse(
-        lambda this: this.string_size,
-        FixedSized(lambda this: this.string_size, NullTerminated(GreedyString("UTF_16_le"),
-                                                                 term="\x00".encode("utf-16le"))),
-        Computed(''))
-)
-
-
-class FiletimeAdapter(Adapter):
-    def _decode(self, obj, context, path):
-        if 0 == obj:
-            return None  # 0 is not really a date
-        secs = int(obj // int(1e7))
-        nanosecs = int(obj - int(secs * int(1e7))) * 100
-
-        # I use numpy's datetime64 instead of datetime.datetime because filetime have 100 nanoseconds precision.
-        return datetime64('1601-01-01') + timedelta64(secs, 's') + timedelta64(nanosecs, 'ns')
-
-    def _encode(self, obj, context, path):
-        return int(uint64((obj - datetime64('1601-01-01')).astype('O'))) // 100
-
-
-Filetime = FiletimeAdapter(Int64ul)
-
-
-class DurationAdapter(Adapter):
-    def _decode(self, obj, context, path):
-        secs = obj // (10 ** 7)
-        nanosecs = (obj - secs * (10 ** 7)) * 100
-        return timedelta64(secs, 's') + timedelta64(nanosecs, 'ns')
-
-    def _encode(self, obj, context, path):
-        return int(uint64(obj.astype('O')))
-
-
-Duration = DurationAdapter(Int64ul)
-PVoid = IfThenElse(lambda ctx: ctx.is_64bit, Int64ul, Int32ul)
-
-UTF16MultiSz = ExprAdapter(
-    RepeatUntil(lambda x, lst, ctx: not x, CString("UTF_16_le")),
-    lambda obj, ctx: list(obj[:-1]),  # last element is the null
-    lambda obj, ctx: obj + ['']
-)
-
-
-def SizedUTF16MultiSz(size_func):
-    return ExprAdapter(
-        FixedSized(size_func, GreedyRange(CString("UTF_16_le"))),
-        lambda obj, ctx: list(obj),  # last element is already removed by GreedyRange
-        lambda obj, ctx: obj + ['']
-    )
 
 
 class CheckCustom(Check):

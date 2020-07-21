@@ -4,8 +4,8 @@ from ipaddress import IPv4Address, IPv6Address
 
 from procmon_parser.consts import EventClass, EventClassOperation
 from procmon_parser.logs import PMLStructReader, Module, Process, Event
-from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_u64, read_utf16, read_pvoid, read_filetime, \
-    read_duration, sizeof_pvoid
+from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_u64, read_utf16, read_filetime, \
+    read_duration, get_pvoid_reader, get_pvoid_size
 from procmon_parser.stream_logs_detail_format import PmlMetadata, get_event_details
 
 
@@ -75,9 +75,9 @@ class StringsTable(list):
 
 
 class ProcessTable(dict):
-    def __init__(self, io, total_size, is_64bit, strings_table):
+    def __init__(self, io, total_size, read_pvoid, strings_table):
         super(ProcessTable, self).__init__()
-        self._is_64bit = is_64bit
+        self._read_pvoid = read_pvoid
         self._strings_table = strings_table
         stream = BytesIO(io.read(total_size))
         number_of_processes = read_u32(stream)
@@ -118,7 +118,7 @@ class ProcessTable(dict):
         version = self._strings_table[read_u32(stream)]
         description = self._strings_table[read_u32(stream)]
 
-        _ = read_pvoid(stream, self._is_64bit)  # Unknown field
+        _ = self._read_pvoid(stream)  # Unknown field
         _ = read_u64(stream)  # Unknown field
         number_of_modules = read_u32(stream)
         modules = [self.__read_module(stream) for _ in range(number_of_modules)]
@@ -130,8 +130,8 @@ class ProcessTable(dict):
                                       modules=modules)
 
     def __read_module(self, stream):
-        _ = read_pvoid(stream, self._is_64bit)  # Unknown field
-        base_address = read_pvoid(stream, self._is_64bit)
+        _ = self._read_pvoid(stream)  # Unknown field
+        base_address = self._read_pvoid(stream)
         size = read_u32(stream)
         image_path = self._strings_table[read_u32(stream)]
         version = self._strings_table[read_u32(stream)]
@@ -189,19 +189,24 @@ def read_event(io, metadata):
     details_size = read_u32(stream)
     extra_details_offset = read_u32(stream)
 
-    stream = BytesIO(io.read(stacktrace_depth * sizeof_pvoid(metadata.is_64bit)))
-    stacktrace = [read_pvoid(stream, metadata.is_64bit) for _ in range(stacktrace_depth)]
+    sizeof_stacktrace = stacktrace_depth * metadata.sizeof_pvoid
+    if metadata.should_get_stacktrace:
+        stream = BytesIO(io.read(sizeof_stacktrace))
+        stacktrace = [metadata.read_pvoid(stream) for _ in range(stacktrace_depth)]
+    else:
+        io.seek(sizeof_stacktrace, 1)
+        stacktrace = []
 
     details = OrderedDict()
-    event = Event(process=process, tid=tid, event_class=event_class, operation=operation, duration=duration, date=date,
-                  result=result, stacktrace=stacktrace, category='', path='', details=details)
+    event = Event(process=process, tid=tid, event_class=event_class, operation=operation, duration=duration,
+                  date_filetime=date, result=result, stacktrace=stacktrace, category='', path='', details=details)
 
     details_stream = BytesIO(io.read(details_size))
     extra_details_stream = None
     if extra_details_offset > 0:
         # The extra details structure surprisingly can be separated from the event structure
         extra_details_offset -= \
-            (COMMON_EVENT_INFO_SIZE + details_size + stacktrace_depth * sizeof_pvoid(metadata.is_64bit))
+            (COMMON_EVENT_INFO_SIZE + details_size + sizeof_stacktrace)
         assert extra_details_offset >= 0
 
         current_offset = io.tell()
@@ -214,9 +219,11 @@ def read_event(io, metadata):
 
 
 class PMLStreamReader(PMLStructReader):
-    def __init__(self, f):
+    def __init__(self, f, should_get_stacktrace=True, should_get_details=True):
         self._stream = f
         self._header = Header(self._stream)
+        self._read_pvoid = get_pvoid_reader(self.header.is_64bit)
+
         self._stream.seek(self.header.events_offsets_array_offset)
         self._events_offsets = EventOffsetsArray(
             self._stream, self.header.process_table_offset - self.header.events_offsets_array_offset,
@@ -228,14 +235,15 @@ class PMLStreamReader(PMLStructReader):
         self._stream.seek(self.header.process_table_offset)
         self._process_table = ProcessTable(self._stream,
                                            self.header.strings_table_offset - self.header.process_table_offset,
-                                           is_64bit=self.header.is_64bit, strings_table=self._strings_table)
+                                           read_pvoid=self._read_pvoid, strings_table=self._strings_table)
         self._stream.seek(self.header.hosts_and_ports_tables_offset)
 
         hostnames_and_ports_tables_stream = BytesIO(self._stream.read())  # this is the end of the file
         self._hostnames_table = HostnamesTable(hostnames_and_ports_tables_stream)
         self._ports_table = PortsTable(hostnames_and_ports_tables_stream)
-        self._metadata = PmlMetadata(self.header.is_64bit, self.__str_idx, self.__process_idx, self.__hostname_idx,
-                                     self.__port_idx)
+        self._metadata = PmlMetadata(self.__str_idx, self.__process_idx, self.__hostname_idx, self.__port_idx,
+                                     self._read_pvoid, get_pvoid_size(self.header.is_64bit),
+                                     should_get_stacktrace, should_get_details)
 
     def __str_idx(self, string_index):
         """Get the actual string from a string index

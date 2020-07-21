@@ -1,5 +1,4 @@
 import pytest
-from construct import StringError
 from procmon_parser import loads_configuration, dumps_configuration
 from procmon_parser.configuration import Rule
 from procmon_parser.consts import Column, RuleRelation, RuleAction
@@ -7,13 +6,13 @@ from procmon_parser.consts import Column, RuleRelation, RuleAction
 
 def test_parse_built_configuration_sanity():
     config = {
-        u"SymbolPath": u"",
-        u"DbgHelpPath": u"C:\\Windows\\help.dll",
-        u"FilterRules": [
-            Rule('Path', 'contains', u'1337', True),
-            Rule('pid', 'is_not', u'1338', True),
-            Rule('Event_class', 'is', u'Profiling', False),
-            Rule('Path', 'ends_with', u'$Mft', False),
+        "SymbolPath": "",
+        "DbgHelpPath": "C:\\Windows\\help.dll",
+        "FilterRules": [
+            Rule('Path', 'contains', '1337', True),
+            Rule('pid', 'is_not', '1338', True),
+            Rule('Event_class', 'is', 'Profiling', False),
+            Rule('Path', 'ends_with', '$Mft', False),
         ],
     }
 
@@ -54,7 +53,7 @@ def test_build_mistyped_path_config_option():
             Rule('Path', 'ends_with', u'$Mft', False),
         ]
     }
-    with pytest.raises(StringError):
+    with pytest.raises(TypeError):
         _ = dumps_configuration(config)
 
 

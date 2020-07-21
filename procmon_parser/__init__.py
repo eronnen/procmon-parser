@@ -7,7 +7,8 @@ from procmon_parser.logs import *
 from procmon_parser.stream_logs_format import PMLStreamReader
 
 __all__ = [
-    'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration', 'ProcmonLogsReader',
+    'ProcmonLogsReader', 'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
+    'Rule', 'Column', 'RuleAction', 'RuleRelation'
 ]
 
 
@@ -15,11 +16,13 @@ class ProcmonLogsReader(object):
     """Reads procmon logs from a stream which in the PML format
     """
 
-    def __init__(self, f):
+    def __init__(self, f, should_get_stacktrace=True, should_get_details=True):
         """Build a ProcmonLogsReader object from ``f`` (a `.read()``-supporting file-like object).
         :param f: ``read`` supporting file-like object
+        :param should_get_stacktrace: True if the parser should parse the stack traces
+        :param should_get_details: True if the parser should parse the Detail column information of the event.
         """
-        self._struct_readear = PMLStreamReader(f)
+        self._struct_readear = PMLStreamReader(f, should_get_stacktrace, should_get_details)
         self._current_event_index = 0
 
     def __iter__(self):

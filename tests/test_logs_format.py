@@ -75,7 +75,7 @@ def check_pml_equals_csv(csv_reader, pml_reader):
         assert csv_record is not None, "PML reader has read more events then the CSV reader after {} records.".format(i)
         assert pml_record is not None, "CSV reader has read more events then the PML reader after {} records.".format(i)
 
-        first_event_date = first_event_date if first_event_date else pml_record.date
+        first_event_date = first_event_date if first_event_date else pml_record.date_filetime
         try:
             pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date)
         except UnicodeEncodeError:

@@ -6,12 +6,15 @@ import binascii
 import datetime
 import enum
 
-from numpy import timedelta64
 from six import string_types
 
 from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation, ColumnToOriginalName
 
 __all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
+
+
+EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
+HUNDREDS_OF_NANOSECONDS = 10000000
 
 
 class Module(object):
@@ -89,13 +92,13 @@ class Process(object):
 
 
 class Event(object):
-    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=timedelta64(0, 'ns'), date=None,
-                 result=0, stacktrace=None, category=None, path=None, details=None):
+    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=0,
+                 date_filetime=None, result=0, stacktrace=None, category=None, path=None, details=None):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
         self.operation = operation.name if isinstance(operation, enum.IntEnum) else operation
-        self.date = date
+        self.date_filetime = date_filetime
         self.result = result
         self.duration = duration
         self.stacktrace = stacktrace
@@ -114,20 +117,30 @@ class Event(object):
     def __str__(self):
         return "Process Name={}, Pid={}, Operation={}, Path=\"{}\", Time={}".format(
             self.process.process_name, self.process.pid, self.operation, self.path,
-            self._strftime_date(self.date, True, True))
+            self._strftime_date(self.date_filetime, True, True))
 
     def __repr__(self):
         return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \
             .format(self.process, self.tid, self.event_class.name, self.operation, self.duration,
-                    self.date, self.result, self.category, self.path, self.details)
+                    self.date_filetime, self.result, self.category, self.path, self.details)
+
+    @property
+    def date(self):
+        if self.date_filetime is not None:
+            return datetime.datetime.utcfromtimestamp(
+                (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + \
+                   datetime.timedelta(microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
+        else:
+            return None
 
     @staticmethod
-    def _strftime_date(date, show_day=True, show_nanoseconds=False):
-        nanoseconds = int(date.astype('O') % int(1e9))
-        d = datetime.datetime.utcfromtimestamp(int(date.astype('O') // int(1e9)))  # Procmon prints it in local time
+    def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False):
+        # Actually Procmon prints it in local time instead of UTC
+        hundred_nanoseconds = (date_filetime % HUNDREDS_OF_NANOSECONDS)
+        d = datetime.datetime.utcfromtimestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS)
 
         if show_nanoseconds:
-            time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(nanoseconds // 100)
+            time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(hundred_nanoseconds)
         else:
             time_of_day = d.strftime("%I:%M:%S %p").lstrip('0')
 
@@ -137,17 +150,16 @@ class Event(object):
         return day + time_of_day
 
     @staticmethod
-    def _strftime_relative_time(delta_nanosecs):
-        secs = int(delta_nanosecs // int(1e9))
-        nanosecs = int(delta_nanosecs % int(1e9))
-        return "{:02d}:{:02d}:{:02d}.{:07d}".format(secs // 3600, (secs // 60) % 60, secs % 60, nanosecs // 100)
+    def _strftime_relative_time(delta_hundred_nanosecs):
+        secs = delta_hundred_nanosecs // HUNDREDS_OF_NANOSECONDS
+        hundred_nanosecs = delta_hundred_nanosecs % HUNDREDS_OF_NANOSECONDS
+        return "{:02d}:{:02d}:{:02d}.{:07d}".format(secs // 3600, (secs // 60) % 60, secs % 60, hundred_nanosecs)
 
     @staticmethod
-    def _strftime_duration(duration):
-        duration_nanosecs = duration.astype('O')
-        secs = int(duration_nanosecs // int(1e9))
-        nanosecs = int(duration_nanosecs % int(1e9))
-        return "{}.{:07d}".format(secs, nanosecs // 100)
+    def _strftime_duration(duration_hundred_nanosecs):
+        secs = duration_hundred_nanosecs // HUNDREDS_OF_NANOSECONDS
+        hundred_nanosecs = duration_hundred_nanosecs % HUNDREDS_OF_NANOSECONDS
+        return "{}.{:07d}".format(secs, hundred_nanosecs)
 
     @staticmethod
     def _get_bool_str(b):
@@ -218,12 +230,12 @@ class Event(object):
 
         return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 
-    def get_compatible_csv_info(self, first_event_date=None):
+    def get_compatible_csv_info(self, first_event_date_filetime=None):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
         """
-        first_event_date = first_event_date if first_event_date else self.date
+        first_event_date_filetime = first_event_date_filetime if first_event_date_filetime else self.date_filetime
         record = {
-            Column.DATE_AND_TIME: Event._strftime_date(self.date, True, False),
+            Column.DATE_AND_TIME: Event._strftime_date(self.date_filetime, True, False),
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
             Column.OPERATION: self._get_compatible_csv_operation_name(),
@@ -238,10 +250,10 @@ class Event(object):
             Column.SESSION: str(self.process.session),
             Column.PATH: self.path,
             Column.TID: str(self.tid),
-            Column.RELATIVE_TIME: Event._strftime_relative_time((self.date - first_event_date).astype('O')),
+            Column.RELATIVE_TIME: Event._strftime_relative_time(self.date_filetime - first_event_date_filetime),
             Column.DURATION:
                 Event._strftime_duration(self.duration) if get_error_message(self.result) != "" else "",
-            Column.TIME_OF_DAY: Event._strftime_date(self.date, False, True),
+            Column.TIME_OF_DAY: Event._strftime_date(self.date_filetime, False, True),
             Column.VERSION: self.process.version,
             Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
             Column.AUTHENTICATION_ID:
@@ -253,7 +265,7 @@ class Event(object):
             Column.PARENT_PID: str(self.process.parent_pid),
             Column.ARCHITECTURE: "64-bit" if self.process.is_process_64bit else "32-bit",
             Column.COMPLETION_TIME:
-                Event._strftime_date(self.date + self.duration, False, True)
+                Event._strftime_date(self.date_filetime + self.duration, False, True)
                 if get_error_message(self.result) != "" else "",
         }
 
