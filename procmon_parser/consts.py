@@ -485,6 +485,18 @@ def get_error_message(error_value):
     return _ErrorCodeMessages.get(error_value, "0x{:X}".format(error_value))
 
 
+def _get_mask_string(mask, mask_strings, seperator):
+    strings = []
+    for value, string in mask_strings.items():
+        if mask & value == value:
+            strings.append(string)
+            mask &= ~value
+
+    if len(strings) == 0:
+        return ''
+    return seperator.join(strings)
+
+
 COMMON_ACCESS_MASK_STRINGS = OrderedDict([
     (0x10000, "Delete"),
     (0x20000, "Read Control"),
@@ -502,7 +514,6 @@ REGISTRY_ACCESS_MASK_STRINGS = OrderedDict([
     (0x2001f, "Read/Write"),
     (0x20019, "Read"),
     (0x20006, "Write"),
-    #(0x20019: "Execute"),
     (0x1, "Query Value"),
     (0x2, "Set Value"),
     (0x4, "Create Sub Key"),
@@ -515,7 +526,9 @@ REGISTRY_ACCESS_MASK_STRINGS = OrderedDict([
 ])
 REGISTRY_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
 
-FILE_ACCESS_MASK_STRINGS = OrderedDict([
+
+FILESYSTEM_ACCESS_MASK_MAPPING = [0x120089, 0x120116, 0x1200a0, 0x1f01ff]  # used in MapGenericMask
+FILESYSTEM_ACCESS_MASK_STRINGS = OrderedDict([
     (0x1f01ff, "All Access"),
     (0x1201bf, "Generic Read/Write/Execute"),
     (0x12019f, "Generic Read/Write"),
@@ -534,7 +547,7 @@ FILE_ACCESS_MASK_STRINGS = OrderedDict([
     (0x80, "Read Attributes"),
     (0x100, "Write Attributes"),
 ])
-FILE_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
+FILESYSTEM_ACCESS_MASK_STRINGS.update(COMMON_ACCESS_MASK_STRINGS)
 
 
 def _get_access_mask_string(access_mask, mappings, access_strings):
@@ -552,19 +565,111 @@ def _get_access_mask_string(access_mask, mappings, access_strings):
     if access_mask & 0x10000000:
         access_mask |= mappings[3]
 
-    accesses = []
-    for value, string in access_strings.items():
-        if access_mask & value == value:
-            accesses.append(string)
-            access_mask &= ~value
-
-    if len(accesses) == 0:
+    string = _get_mask_string(access_mask, access_strings, ", ")
+    if string == '':
         return "None 0x{:x}".format(access_mask)
-    return ", ".join(accesses)
+    return string
 
 
 def get_registry_access_mask_string(access_mask):
     return _get_access_mask_string(access_mask, REGISTRY_ACCESS_MASK_MAPPING, REGISTRY_ACCESS_MASK_STRINGS)
+
+
+def get_filesystem_access_mask_string(access_mask):
+    return _get_access_mask_string(access_mask, FILESYSTEM_ACCESS_MASK_MAPPING, FILESYSTEM_ACCESS_MASK_STRINGS)
+
+
+FILESYSTEM_CREATE_OPTIONS = OrderedDict([
+    (0x1, "Directory"),
+    (0x2, "Write Through"),
+    (0x4, "Sequential Access"),
+    (0x8, "No Buffering"),
+    (0x10, "Synchronous IO Alert"),
+    (0x20, "Synchronous IO Non-Alert"),
+    (0x40, "Non-Directory File"),
+    (0x80, "Create Tree Connection"),
+    (0x100, "Complete If Oplocked"),
+    (0x200, "No EA Knowledge"),
+    (0x400, "Open for Recovery"),
+    (0x800, "Random Access"),
+    (0x1000, "Delete On Close"),
+    (0x2000, "Open By ID"),
+    (0x4000, "Open For Backup"),
+    (0x8000, "No Compression"),
+    (0x100000, "Reserve OpFilter"),
+    (0x200000, "Open Reparse Point"),
+    (0x400000, "Open No Recall"),
+    (0x800000, "Open For Free Space Query"),
+    (0x10000, "Open Requiring Oplock"),
+    (0x20000, "Disallow Exclusive"),
+])
+
+
+def get_filesysyem_create_options(options_mask):
+    return _get_mask_string(options_mask, FILESYSTEM_CREATE_OPTIONS, ", ")
+
+
+FilesystemCreateAttributes = OrderedDict([
+    (0x1, "R"),
+    (0x2, "H"),
+    (0x4, "S"),
+    (0x10, "D"),
+    (0x20, "A"),
+    (0x40, "D"),
+    (0x80, "N"),
+    (0x100, "T"),
+    (0x200, "SF"),
+    (0x400, "RP"),
+    (0x800, "C"),
+    (0x1000, "O"),
+    (0x2000, "NCI"),
+    (0x4000, "E"),
+    (0x10000, "V"),
+])
+
+
+def get_filesysyem_create_attributes(create_mask):
+    if 0 == create_mask:
+        return "n/a"
+    return _get_mask_string(create_mask, FilesystemCreateAttributes, "")
+
+
+FilesystemCreateShareMode = OrderedDict([
+    (0x1, "Read"),
+    (0x2, "Write"),
+    (0x4, "Delete"),
+])
+
+
+def get_filesysyem_create_share_mode(share_mask):
+    if 0 == share_mask:
+        return "None"
+    return _get_mask_string(share_mask, FilesystemCreateShareMode, ", ")
+
+
+FilesystemIoFlags = OrderedDict([
+    (0x10, "Buffered"),
+    (0x1, "Non-cached"),
+    (0x2, "Paging I/O"),
+    (0x4, "Synchronous"),
+    (0x40, "Synchronous Paging I/O"),
+    (0x400000, "Write Through"),
+])
+
+
+def get_filesysyem_io_flags(flags):
+    return _get_mask_string(flags, FilesystemIoFlags, ", ")
+
+
+FilesystemPriority = {
+    0: '',
+    1: 'Very Low',
+    2: 'Low',
+    3: 'Normal',
+    4: 'High',
+    5: 'Critical',
+}
+
 
 
 class RegistryTypes(enum.IntEnum):
@@ -616,3 +721,21 @@ RegistryKeySetInformationClass = {
 class RegistryDisposition(enum.IntEnum):
     REG_CREATED_NEW_KEY = 1
     REG_OPENED_EXISTING_KEY = 2
+
+
+class FilesystemDisposition(enum.IntEnum):
+    Supersede = 0
+    Open = 1
+    Create = 2
+    OpenIf = 3
+    Overwrite = 4
+    OverwriteIf = 5
+
+
+class FilesystemOpenResult(enum.IntEnum):
+    Superseded = 0
+    Opened = 1
+    Created = 2
+    Overwritten = 3
+    Exists = 4
+    DoesNotExist = 5

@@ -35,12 +35,22 @@ SUPPORTED_COLUMNS = [
 
 PARTIAL_SUPPORTED_COLUMNS = {
     Column.DETAIL: [
-
+        "CloseFile",
+        "QueryRemoteProtocolInformation",
+        "QueryIdInformation",
+        "CreateFile",
+        "ReadFile",
+        "WriteFile",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
 
     Column.CATEGORY: [
-
+        "CloseFile",
+        "QueryRemoteProtocolInformation",
+        "QueryIdInformation",
+        "CreateFile",
+        "ReadFile",
+        "WriteFile",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
 }
@@ -99,6 +109,11 @@ def check_pml_equals_csv(csv_reader, pml_reader):
             if pml_compatible_record["Operation"] in PARTIAL_SUPPORTED_COLUMNS[column]:
                 pml_value = pml_compatible_record[column_name]
                 csv_value = csv_record[column_name]
+                if column_name == "Detail" and "Impersonating" in pml_record.details:
+                    # For this detail procmon keeps the SID structure so we can't restore the SID resolved name,
+                    # only the S-1-5-... form
+                    pml_value = pml_value[:pml_value.index("Impersonating")]
+                    csv_value = csv_value[:csv_value.index("Impersonating")]
                 if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
                                                                              column_name, i):
                     raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(

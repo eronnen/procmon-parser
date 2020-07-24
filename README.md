@@ -140,10 +140,10 @@ The PML format is very complex so there are some features that are not supported
         - [ ] VolumeDismount
         - [ ] VolumeMount
         - [ ] CreateFileMapping
-        - [ ] CreateFile
+        - [x] CreateFile
         - [ ] CreatePipe
-        - [ ] ReadFile
-        - [ ] WriteFile
+        - [x] ReadFile
+        - [x] WriteFile
         - [ ] QueryInformationFile
         - [ ] SetInformationFile
         - [ ] QueryEAFile
@@ -157,7 +157,7 @@ The PML format is very complex so there are some features that are not supported
         - [ ] InternalDeviceIoControl
         - [ ] Shutdown
         - [ ] LockUnlockFile
-        - [ ] CloseFile
+        - [x] CloseFile
         - [ ] CreateMailSlot
         - [ ] QuerySecurityFile
         - [ ] SetSecurityFile
