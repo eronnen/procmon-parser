@@ -1,9 +1,10 @@
 from collections import OrderedDict
 from io import BytesIO
+from struct import Struct
 from ipaddress import IPv4Address, IPv6Address
 
 from procmon_parser.consts import EventClass, EventClassOperation
-from procmon_parser.logs import PMLStructReader, Module, Process, Event
+from procmon_parser.logs import PMLStructReader, Module, Process, Event, PMLError
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_u64, read_utf16, read_filetime, \
     read_duration, get_pvoid_reader, get_pvoid_size
 from procmon_parser.stream_logs_detail_format import PmlMetadata, get_event_details
@@ -15,7 +16,8 @@ class Header(object):
     def __init__(self, io):
         stream = BytesIO(io.read(self.SIZE))
         self.signature = stream.read(4)
-        assert self.signature == b"PML_", "Wrong PML header"
+        if self.signature != b"PML_":
+            raise PMLError("not a Process Monitor backing file (signature missing).")
         self.version = read_u32(stream)
         if self.version not in [9]:
             raise NotImplementedError("Not supporting PML version {}".format(self.version))
@@ -29,7 +31,10 @@ class Header(object):
         self.events_offsets_array_offset = read_u64(stream)
         self.process_table_offset = read_u64(stream)
         self.strings_table_offset = read_u64(stream)
-        self.unknown_table_offset = read_u64(stream)
+
+        # currently not being parsed because I don't know how to show icons in python.
+        # Docs of this table's layout are in "docs\PML Format.md"
+        self.icon_table_offset = read_u64(stream)
 
         stream.seek(12, 1)  # Unknown fields
         self.windows_major_number = read_u32(stream)
@@ -45,6 +50,12 @@ class Header(object):
         self.header_size = read_u64(stream)
         self.hosts_and_ports_tables_offset = read_u64(stream)
 
+        if self.events_offset == 0 or self.events_offsets_array_offset == 0 or self.process_table_offset == 0 or self.strings_table_offset == 0 or self.icon_table_offset == 0:
+            raise PMLError("PML was not closed cleanly during capture and is corrupt.")
+
+        if self.header_size != self.SIZE or self.hosts_and_ports_tables_offset == 0:
+            raise PMLError("PML is corrupt and cannot be opened.")
+
 
 class EventOffsetsArray(list):
     def __init__(self, io, total_size, number_of_events):
@@ -58,40 +69,37 @@ class EventOffsetsArray(list):
 
 
 class StringsTable(list):
-    def __init__(self, io, total_size):
+    def __init__(self, io):
         super(StringsTable, self).__init__()
-        stream = BytesIO(io.read(total_size))
-        number_of_strings = read_u32(stream)
+        string_table_start = io.tell()
+        number_of_strings = read_u32(io)
 
-        # relative offsets to strings are not essential since they come one after another
-        # strings_offsets_array = [read_u32(stream) for _ in range(number_of_strings)]
-        stream.seek(number_of_strings * 4, 1)  # jump over the strings offsets array
+        strings_offsets_array = [read_u32(io) for _ in range(number_of_strings)]
 
         strings = [''] * number_of_strings
-        for i in range(number_of_strings):
-            string_size = read_u32(stream)
-            strings[i] = read_utf16(stream, string_size)
+        for i, offset in enumerate(strings_offsets_array):
+            io.seek(string_table_start + offset, 0)
+            string_size = read_u32(io)
+            strings[i] = read_utf16(io, string_size)
         self.extend(strings)
 
 
 class ProcessTable(dict):
-    def __init__(self, io, total_size, read_pvoid, strings_table):
+    def __init__(self, io, read_pvoid, strings_table):
         super(ProcessTable, self).__init__()
         self._read_pvoid = read_pvoid
         self._strings_table = strings_table
-        stream = BytesIO(io.read(total_size))
-        number_of_processes = read_u32(stream)
+        process_table_start = io.tell()
+        number_of_processes = read_u32(io)
 
         # The array of process indexes is not essential becuase they appear in the process structure itself.
-        # process_index_array = [read_u32(stream) for _ in range(number_of_processes)]
-        stream.seek(number_of_processes * 4, 1)  # jump over the process indexes array
+        # process_index_array = [read_u32(io) for _ in range(number_of_processes)]
+        io.seek(number_of_processes * 4, 1)  # jump over the process indexes array
 
-        # relative offsets to processes are not essential since they come one after another
-        # process_offsets_array = [read_u32(stream) for _ in range(number_of_processes)]
-        stream.seek(number_of_processes * 4, 1)  # jump over the process offsets array
-
-        for _ in range(number_of_processes):
-            process_index, process = self.__read_process(stream)
+        process_offsets_array = [read_u32(io) for _ in range(number_of_processes)]
+        for offset in process_offsets_array:
+            io.seek(process_table_start + offset, 0)
+            process_index, process = self.__read_process(io)
             self[process_index] = process
 
     def __read_process(self, stream):
@@ -118,8 +126,9 @@ class ProcessTable(dict):
         version = self._strings_table[read_u32(stream)]
         description = self._strings_table[read_u32(stream)]
 
+        icon_index_small = read_u32(stream)
+        icon_index_big = read_u32(stream)
         _ = self._read_pvoid(stream)  # Unknown field
-        _ = read_u64(stream)  # Unknown field
         number_of_modules = read_u32(stream)
         modules = [self.__read_module(stream) for _ in range(number_of_modules)]
         return process_index, Process(pid=pid, parent_pid=parent_pid, authentication_id=authentication_id,
@@ -166,6 +175,7 @@ class PortsTable(dict):
             self[(port_value, is_tcp)] = port_name
 
 
+common_event_struct = Struct("<IIIHHIQQIHHII")
 def read_event(io, metadata):
     """Reads the event that the stream points to.
 
@@ -173,21 +183,12 @@ def read_event(io, metadata):
     :param metadata: metadata of the PML file.
     :return: Event object.
     """
-    COMMON_EVENT_INFO_SIZE = 0x34  # the size of the fields that are common to all events.
-    stream = BytesIO(io.read(COMMON_EVENT_INFO_SIZE))
+    process_idx, tid, event_class_val, operation_val, _, _, duration, date, result, stacktrace_depth, _, \
+        details_size, extra_details_offset = common_event_struct.unpack(io.read(common_event_struct.size))
 
-    process = metadata.process_idx(read_u32(stream))
-    tid = read_u32(stream)
-    event_class = EventClass(read_u32(stream))
-    operation = EventClassOperation[event_class](read_u16(stream))
-    stream.seek(6, 1)  # Unknown field
-    duration = read_duration(stream)
-    date = read_filetime(stream)
-    result = read_u32(stream)
-    stacktrace_depth = read_u16(stream)
-    stream.seek(2, 1)  # Unknown field
-    details_size = read_u32(stream)
-    extra_details_offset = read_u32(stream)
+    process = metadata.process_idx(process_idx)
+    event_class = EventClass(event_class_val)
+    operation = EventClassOperation[event_class](operation_val)
 
     sizeof_stacktrace = stacktrace_depth * metadata.sizeof_pvoid
     if metadata.should_get_stacktrace:
@@ -206,7 +207,7 @@ def read_event(io, metadata):
     if extra_details_offset > 0:
         # The extra details structure surprisingly can be separated from the event structure
         extra_details_offset -= \
-            (COMMON_EVENT_INFO_SIZE + details_size + sizeof_stacktrace)
+            (common_event_struct.size + details_size + sizeof_stacktrace)
         assert extra_details_offset >= 0
 
         current_offset = io.tell()
@@ -230,12 +231,9 @@ class PMLStreamReader(PMLStructReader):
             self.header.number_of_events)
 
         self._stream.seek(self.header.strings_table_offset)
-        self._strings_table = StringsTable(self._stream,
-                                           self.header.unknown_table_offset - self.header.strings_table_offset)
+        self._strings_table = StringsTable(self._stream)
         self._stream.seek(self.header.process_table_offset)
-        self._process_table = ProcessTable(self._stream,
-                                           self.header.strings_table_offset - self.header.process_table_offset,
-                                           read_pvoid=self._read_pvoid, strings_table=self._strings_table)
+        self._process_table = ProcessTable(self._stream, read_pvoid=self._read_pvoid, strings_table=self._strings_table)
         self._stream.seek(self.header.hosts_and_ports_tables_offset)
 
         hostnames_and_ports_tables_stream = BytesIO(self._stream.read())  # this is the end of the file

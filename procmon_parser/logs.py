@@ -10,11 +10,15 @@ from six import string_types
 
 from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation, ColumnToOriginalName
 
-__all__ = ['Module', 'Process', 'Event', 'PMLStructReader']
+__all__ = ['PMLError', 'Module', 'Process', 'Event', 'PMLStructReader']
 
 
 EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
 HUNDREDS_OF_NANOSECONDS = 10000000
+
+
+class PMLError(RuntimeError):
+    pass
 
 
 class Module(object):

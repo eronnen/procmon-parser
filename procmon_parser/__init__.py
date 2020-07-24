@@ -8,7 +8,7 @@ from procmon_parser.stream_logs_format import PMLStreamReader
 
 __all__ = [
     'ProcmonLogsReader', 'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
-    'Rule', 'Column', 'RuleAction', 'RuleRelation'
+    'Rule', 'Column', 'RuleAction', 'RuleRelation', 'PMLError'
 ]
 
 

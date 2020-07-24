@@ -11,6 +11,7 @@ from procmon_parser import ProcmonLogsReader
 
 if PY2:
     from unicodecsv import DictReader
+    from codecs import BOM_UTF8
 else:
     from csv import DictReader
 
@@ -27,7 +28,7 @@ def pml_logs_windows7_32bit():
 @pytest.fixture(scope='session')
 def csv_logs_windows7_32bit():
     with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests32bitUTCCSV"), "rb") as f:
-        return zlib.decompress(f.read()).decode('utf-16le')  # I converted the csv file to UTF-16 from windows-1252
+        return zlib.decompress(f.read())
 
 
 @pytest.fixture(scope='session')
@@ -39,7 +40,7 @@ def pml_logs_windows10_64bit():
 @pytest.fixture(scope='session')
 def csv_logs_windows10_64bit():
     with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests64bitUTCCSV"), "rb") as f:
-        return zlib.decompress(f.read()).decode('utf-16le')  # I converted the csv file to UTF-16 from windows-1252
+        return zlib.decompress(f.read())
 
 
 def get_pml_log_reader(pml_logs):
@@ -52,11 +53,12 @@ def get_pml_log_reader(pml_logs):
 
 def get_csv_log_reader(csv_logs):
     if PY2:
-        csv_logs_utf8 = csv_logs.encode('utf-8')  # I only found a csv library that works for UTF-8
-        csv_stream = BytesIO(csv_logs_utf8)
+        csv_stream = BytesIO(csv_logs)
+        bom = csv_stream.read(len(BOM_UTF8))
+        assert bom == BOM_UTF8, "Unexpected Procmon csv encoding"
         csv_reader = DictReader(csv_stream, encoding='utf-8')
     else:
-        csv_stream = StringIO(csv_logs)
+        csv_stream = StringIO(csv_logs.decode('utf-8-sig'))
         csv_reader = DictReader(csv_stream)
     return csv_reader
 

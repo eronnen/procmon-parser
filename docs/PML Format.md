@@ -21,7 +21,8 @@ The file starts with a header:
 | 0x248  | Uint64         | File offset to an array of offsets to all the events. |
 | 0x250  | Uint64         | File offset to the array of processes.                |
 | 0x258  | Uint64         | File offset to the array of strings.                  |
-| 0x260  | Byte[0x14]     | Unknown                                               |
+| 0x260  | Uint64         | File offset to the icons array.                       |
+| 0x268  | Byte[0xc]      | Unknown                                               |
 | 0x274  | Uint32         | Windows version major number                          |
 | 0x278  | Uint32         | Windows version minor number                          |
 | 0x27C  | Uint32         | Windows build number                                  |
@@ -33,7 +34,7 @@ The file starts with a header:
 | 0x398  | Uint64         | File offset to the start of the events array (again). |
 | 0x3A0  | Uint64         | File offset to hosts and ports arrays.                |
 
-The header has file pointers to 4 important arrays:
+The header has file pointers to 5 important arrays:
 
 **Strings Array**
 
@@ -88,8 +89,9 @@ A process is represented by:
 | 0x4C      | Uint32    | company of the executable - as a string index                |
 | 0x50      | Uint32    | version of the executable - as a string index                |
 | 0x54      | Uint32    | description of the executable - as a string index            |
-| 0x58      | Pvoid     | Unknown                                                      |
-| 0x5C/0x60 | Uint64    | Unknown                                                      |
+| 0x58      | Uint32    | Icon index small (0x10 pixels)                               |
+| 0x5C      | Uint32    | Icon index big (0x20 pixels)                                 |
+| 0x0x60    | PVoid     | Unknown                                                      |
 | 0x64/0x68 | Uint32    | number of modules in the process                             |
 | 0x68/0x6C | Module[]  | Array of the modules loaded in the process.                  |
 
@@ -133,7 +135,23 @@ typedef struct {
 } Port;
 ```
 
+**Icon Array**
 
+Icons of captured process are stored in this array in the following format:
+
+| Offset | Data Type | Description                                           |
+| ------ | --------- | ----------------------------------------------------- |
+| 0x0    | UInt32    | The number of icons in the array.                     |
+| 0x4    | Uint32[]  | Array of relative offsets to every icon in the array. |
+| 0x4+n  | Icon[]    | The array of the icons itself.                        |
+
+The icons are being shown in the GUI with `CreateIconFromResourceEx`. Every icon is represented in the file by:
+
+| Offset | Data Type | Description                     |
+| ------ | --------- | ------------------------------- |
+| 0x0    | Uint32    | the `cxDesired` and `cyDesired` |
+| 0x4    | Uint32    | the size of the icon in bytes.  |
+| 0x8    | ICONIMAGE | the icon itself.                |
 
 **Events Array**
 
