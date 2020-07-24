@@ -194,7 +194,7 @@ class Event(object):
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
         elif self.operation == ProcessOperation.Process_Start.name:
             details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
-        elif "Reg" in self.operation:
+        elif EventClass.Registry == self.event_class:
             commas_formatted_keys = ["Length", "SubKeys", "Values", "Index"]
             for key in commas_formatted_keys:
                 if key in details:
@@ -231,6 +231,11 @@ class Event(object):
                 del details["Name"]
             elif self.operation == "RegQueryKey" and details["Query"] == "Name" and "Name" in details:
                 del details["Name"]
+        elif EventClass.File_System == self.event_class:
+            commas_formatted_keys = ["AllocationSize", "Offset", "Length"]
+            for key in commas_formatted_keys:
+                if key in details and int == type(details[key]):
+                    details[key] = '{:,}'.format(details[key])
 
         return ", ".join("{}: {}".format(k, v) for k, v in details.items())
 

@@ -6,7 +6,7 @@ from ipaddress import IPv4Address, IPv6Address
 from procmon_parser.consts import EventClass, EventClassOperation
 from procmon_parser.logs import PMLStructReader, Module, Process, Event, PMLError
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_u64, read_utf16, read_filetime, \
-    read_duration, get_pvoid_reader, get_pvoid_size
+    get_pvoid_reader, get_pvoid_size
 from procmon_parser.stream_logs_detail_format import PmlMetadata, get_event_details
 
 
@@ -175,7 +175,9 @@ class PortsTable(dict):
             self[(port_value, is_tcp)] = port_name
 
 
-common_event_struct = Struct("<IIIHHIQQIHHII")
+CommonEventStruct = Struct("<IIIHHIQQIHHII")
+
+
 def read_event(io, metadata):
     """Reads the event that the stream points to.
 
@@ -184,7 +186,7 @@ def read_event(io, metadata):
     :return: Event object.
     """
     process_idx, tid, event_class_val, operation_val, _, _, duration, date, result, stacktrace_depth, _, \
-        details_size, extra_details_offset = common_event_struct.unpack(io.read(common_event_struct.size))
+        details_size, extra_details_offset = CommonEventStruct.unpack(io.read(CommonEventStruct.size))
 
     process = metadata.process_idx(process_idx)
     event_class = EventClass(event_class_val)
@@ -207,7 +209,7 @@ def read_event(io, metadata):
     if extra_details_offset > 0:
         # The extra details structure surprisingly can be separated from the event structure
         extra_details_offset -= \
-            (common_event_struct.size + details_size + sizeof_stacktrace)
+            (CommonEventStruct.size + details_size + sizeof_stacktrace)
         assert extra_details_offset >= 0
 
         current_offset = io.tell()

@@ -1,15 +1,41 @@
 from collections import namedtuple
-from struct import error
+from io import BytesIO
+from struct import error, unpack
 
 from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
     FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass, \
-    RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass
-
+    RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass, \
+    FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
+    get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
+    FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
-    read_utf16_multisz, read_u64, read_filetime
+    read_utf16_multisz, read_u64, read_filetime, read_s64
 
 PmlMetadata = namedtuple('PmlMetadata', ['str_idx', 'process_idx', 'hostname_idx', 'port_idx', 'read_pvoid',
                                          'sizeof_pvoid', 'should_get_stacktrace', 'should_get_details'])
+
+
+def get_enum_name_or(enum, val, default):
+    try:
+        return enum(val).name
+    except ValueError:
+        return default
+
+
+def get_sid_string(sid):
+    revision = unpack('B', sid[0:1])[0]
+    if revision != 1:
+        return ''  # Not 1 doesn't exist yet
+    count = unpack('B', sid[1:2])[0]
+    authority = unpack(">Q", b"\x00\x00" + sid[2:8])[0]
+    sid_string = 'S-{}-{}'.format(revision, authority)
+    binary = sid[8:]
+    if len(binary) != 4 * count:
+        return ''
+    for i in range(count):
+        value = unpack('<L', binary[4 * i:4 * (i + 1)])[0]
+        sid_string += '-{}'.format(value)
+    return sid_string
 
 
 def read_detail_string_info(io):
@@ -312,7 +338,11 @@ def get_registry_event_details(io, metadata, event, extra_detail_io):
         RegistryExtraDetailsHandler[event.operation](metadata, event, extra_detail_io, details_info)
 
 
-def get_filesystem_query_directory_details(io, metadata, event, extra_detail_io):
+def get_filesystem_read_metadata_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read Metadata"
+
+
+def get_filesystem_query_directory_details(io, metadata, event, details_io, extra_detail_io):
     directory_name_info = read_detail_string_info(io)
     directory_name = read_detail_string(io, directory_name_info)
     if directory_name:
@@ -320,13 +350,93 @@ def get_filesystem_query_directory_details(io, metadata, event, extra_detail_io)
         event.details['Filter'] = directory_name
 
 
+def get_filesystem_create_file_details(io, metadata, event, details_io, extra_detail_io):
+    event.details["Desired Access"] = get_filesystem_access_mask_string(read_u32(io))
+    impersonating_sid_length = read_u8(io)
+    io.seek(0x3, 1)  # padding
+
+    details_io.seek(0x10, 1)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+
+    disposition_and_options = read_u32(details_io)
+    disposition = disposition_and_options >> 0x18
+    options = disposition_and_options & 0xffffff
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+    attributes = read_u16(details_io)
+    share_mode = read_u16(details_io)
+
+    event.details["Disposition"] = get_enum_name_or(FilesystemDisposition, disposition, "<unknown>")
+    event.details["Options"] = get_filesysyem_create_options(options)
+    event.details["Attributes"] = get_filesysyem_create_attributes(attributes)
+    event.details["ShareMode"] = get_filesysyem_create_share_mode(share_mode)
+
+    details_io.seek(0x4 + metadata.sizeof_pvoid * 2, 1)
+    allocation = read_u32(details_io)
+    allocation_value = allocation if disposition in [FilesystemDisposition.Supersede, FilesystemDisposition.Create,
+                                                     FilesystemDisposition.OpenIf,
+                                                     FilesystemDisposition.OverwriteIf] else "n/a"
+    event.details["AllocationSize"] = allocation_value
+
+    if impersonating_sid_length:
+        event.details["Impersonating"] = get_sid_string(io.read(impersonating_sid_length))
+
+    open_result = None
+    if extra_detail_io:
+        open_result = read_u32(extra_detail_io)
+        event.details["OpenResult"] = get_enum_name_or(FilesystemOpenResult, open_result, "<unknown>")
+
+    if open_result in [FilesystemOpenResult.Superseded, FilesystemOpenResult.Created, FilesystemOpenResult.Overwritten]:
+        event.category = "Write"
+    elif open_result in [FilesystemOpenResult.Opened, FilesystemOpenResult.Exists, FilesystemOpenResult.DoesNotExist]:
+        pass
+    elif event.details["Disposition"] in ["Open", "<unknown>"]:
+        pass
+    else:
+        event.category = "Write"
+
+
+def get_filesystem_read_write_file_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read" if event.operation == "ReadFile" else "Write"
+    details_io.seek(0x4, 1)
+    io_flags_and_priority = read_u32(details_io)
+    io_flags = io_flags_and_priority & 0xe000ff
+    priority = (io_flags_and_priority >> 0x11) & 7
+    details_io.seek(0x4, 1)
+    length = read_u32(details_io)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+    details_io.seek(0x4, 1)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+    offset = read_s64(details_io)
+
+    event.details["Offset"] = offset
+    if extra_detail_io:
+        length = read_u32(extra_detail_io)
+    event.details["Length"] = length
+
+    if io_flags != 0:
+        event.details["I/O Flags"] = get_filesysyem_io_flags(io_flags)
+
+    if priority != 0:
+        event.details["Priority"] = FilesystemPriority.get(priority, "0x{:x}".format(priority))
+
+
 FilesystemSubOperationHandler = {
+    FilesystemOperation.CreateFile.name: get_filesystem_create_file_details,
+    FilesystemOperation.ReadFile.name: get_filesystem_read_write_file_details,
+    FilesystemOperation.WriteFile.name: get_filesystem_read_write_file_details,
+    FilesystemQueryInformationOperation.QueryIdInformation.name: get_filesystem_read_metadata_details,
+    FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
     FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_details
 }
 
 
 def get_filesystem_event_details(io, metadata, event, extra_detail_io):
     sub_operation = read_u8(io)
+    io.seek(0x3, 1)  # padding
 
     # fix operation name if there is more specific sub operation
     if 0 != sub_operation and FilesystemOperation[event.operation] in FilesystemSubOperations:
@@ -335,12 +445,12 @@ def get_filesystem_event_details(io, metadata, event, extra_detail_io):
         except ValueError:
             event.operation += " <Unknown>"
 
-    io.seek(1 + metadata.sizeof_pvoid * 5 + 0x16, 1)  # Unknown fields
+    details_io = BytesIO(io.read(metadata.sizeof_pvoid * 5 + 0x14))
     path_info = read_detail_string_info(io)
-    io.seek(2, 1)  # Unknown fields
+    io.seek(2, 1)  # Padding
     event.path = read_detail_string(io, path_info)
-    if event.operation in FilesystemSubOperationHandler:
-        FilesystemSubOperationHandler[event.operation](io, metadata, event, extra_detail_io)
+    if metadata.should_get_details and event.operation in FilesystemSubOperationHandler:
+        FilesystemSubOperationHandler[event.operation](io, metadata, event, details_io, extra_detail_io)
 
 
 def get_process_created_details(io, metadata, event, extra_detail_io):

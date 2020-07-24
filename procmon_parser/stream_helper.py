@@ -4,6 +4,7 @@ unpacker_u8 = struct.Struct('B').unpack
 unpacker_u16 = struct.Struct('<H').unpack
 unpacker_u32 = struct.Struct('<I').unpack
 unpacker_u64 = struct.Struct('<Q').unpack
+unpacker_s64 = struct.Struct('<q').unpack
 
 
 def read_u8(io):
@@ -20,6 +21,10 @@ def read_u32(io):
 
 def read_u64(io):
     return unpacker_u64(io.read(8))[0]
+
+
+def read_s64(io):
+    return unpacker_s64(io.read(8))[0]
 
 
 def get_pvoid_size(is_64bit):
