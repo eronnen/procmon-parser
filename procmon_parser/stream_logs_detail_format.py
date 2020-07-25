@@ -7,7 +7,8 @@ from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperatio
     RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass, \
     FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
     get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
-    FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name
+    FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name, FileInformationClass, \
+    get_filesysyem_notify_change_flags
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
     read_utf16_multisz, read_u64, read_filetime, read_s64
 
@@ -343,11 +344,93 @@ def get_filesystem_read_metadata_details(io, metadata, event, details_io, extra_
 
 
 def get_filesystem_query_directory_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read Metadata"
     directory_name_info = read_detail_string_info(io)
     directory_name = read_detail_string(io, directory_name_info)
     if directory_name:
         event.path = event.path + directory_name if event.path[-1] == "\\" else event.path + "\\" + directory_name
         event.details['Filter'] = directory_name
+
+    details_io.seek(0x10, 1)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+    details_io.seek(0x4, 1)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+
+    file_information_class = FileInformationClass(read_u32(details_io))
+    event.details["FileInformationClass"] = file_information_class.name
+
+    if extra_detail_io and file_information_class in [FileInformationClass.FileDirectoryInformation,
+                                                      FileInformationClass.FileFullDirectoryInformation,
+                                                      FileInformationClass.FileBothDirectoryInformation,
+                                                      FileInformationClass.FileNamesInformation,
+                                                      FileInformationClass.FileIdBothDirectoryInformation,
+                                                      FileInformationClass.FileIdFullDirectoryInformation]:
+        extra_detail_length = len(extra_detail_io.getvalue())
+        next_entry_offset = -1  # hack so the first iteration won't exit
+        current_entry_offset = 1
+
+        i = 0 if directory_name else -1
+        while True:
+            i += 1
+            if next_entry_offset == 0 or (current_entry_offset + next_entry_offset) > extra_detail_length:
+                break  # No more structures
+
+            extra_detail_io.seek(current_entry_offset + next_entry_offset, 0)
+            current_entry_offset = extra_detail_io.tell()
+            next_entry_offset = read_u32(extra_detail_io)
+            file_index = read_u32(extra_detail_io)
+            if file_information_class == FileInformationClass.FileNamesInformation:
+                # FILE_NAMES_INFORMATION structure
+                file_name_length = read_u32(extra_detail_io)
+                event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
+                continue
+            creation_time = read_filetime(extra_detail_io)
+            last_access_time = read_filetime(extra_detail_io)
+            last_write_time = read_filetime(extra_detail_io)
+            change_time = read_filetime(extra_detail_io)
+            end_of_file = read_u64(extra_detail_io)
+            allocation_size = read_u64(extra_detail_io)
+            file_attributes = read_u32(extra_detail_io)
+            file_name_length = read_u32(extra_detail_io)
+            if file_information_class == FileInformationClass.FileDirectoryInformation:
+                # FILE_DIRECTORY_INFORMATION structure
+                event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
+                continue
+            ea_size = read_u32(extra_detail_io)
+            if file_information_class == FileInformationClass.FileFullDirectoryInformation:
+                # FILE_FULL_DIR_INFORMATION structure
+                event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
+                continue
+            if file_information_class == FileInformationClass.FileIdFullDirectoryInformation:
+                # FILE_ID_FULL_DIR_INFORMATION structure
+                file_id = read_u64(extra_detail_io)
+                event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
+                continue
+            short_name_length = read_u8(extra_detail_io)
+            extra_detail_io.seek(1, 1)  # Padding
+            short_name = extra_detail_io.read(12 * 2)
+            if file_information_class == FileInformationClass.FileBothDirectoryInformation:
+                # FILE_BOTH_DIR_INFORMATION structure
+                event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
+                continue
+
+            # FILE_ID_BOTH_DIR_INFORMATION structure
+            extra_detail_io.seek(2, 1)  # Padding
+            file_id = read_u64(extra_detail_io)
+            event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
+            continue
+
+
+def get_filesystem_notify_change_directory_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read Metadata"
+
+    details_io.seek(0x10, 1)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+
+    event.details["Filter"] = get_filesysyem_notify_change_flags(read_u32(details_io))
 
 
 def get_filesystem_create_file_details(io, metadata, event, details_io, extra_detail_io):
@@ -482,10 +565,11 @@ FilesystemSubOperationHandler = {
     FilesystemOperation.ReadFile.name: get_filesystem_read_write_file_details,
     FilesystemOperation.WriteFile.name: get_filesystem_read_write_file_details,
     FilesystemOperation.FileSystemControl.name: get_filesystem_ioctl_details,
+    FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_details,
+    FilesysemDirectoryControlOperation.NotifyChangeDirectory.name: get_filesystem_notify_change_directory_details,
     FilesystemOperation.DeviceIoControl.name: get_filesystem_ioctl_details,
     FilesystemQueryInformationOperation.QueryIdInformation.name: get_filesystem_read_metadata_details,
     FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
-    FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_details
 }
 
 

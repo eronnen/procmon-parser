@@ -178,7 +178,9 @@ class Event(object):
     def _get_compatible_csv_operation_name(self):
         if "<Unknown>" in self.operation:
             return "<Unknown>"
-        return self.operation.replace('_', ' ')
+        if EventClass.Process == self.event_class:
+            return self.operation.replace('_', ' ')
+        return self.operation
 
     def _get_compatible_csv_detail_column(self):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.

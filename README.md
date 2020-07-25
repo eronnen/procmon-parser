@@ -151,10 +151,10 @@ The PML format is very complex so there are some features that are not supported
         - [ ] FlushBuffersFile
         - [ ] QueryVolumeInformation
         - [ ] SetVolumeInformation
-        - [ ] DirectoryControl
+        - [x] DirectoryControl
         - [x] FileSystemControl
         - [x] DeviceIoControl
-        - [ ] InternalDeviceIoControl
+        - [x] InternalDeviceIoControl
         - [ ] Shutdown
         - [ ] LockUnlockFile
         - [x] CloseFile

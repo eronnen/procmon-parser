@@ -41,6 +41,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "CreateFile",
         "ReadFile",
         "WriteFile",
+        "QueryDirectory",
+        "NotifyChangeDirectory",
         "FilesystemControl",
         "DeviceIoControl",
         "InternalDeviceIoControl",
@@ -55,6 +57,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "CreateFile",
         "ReadFile",
         "WriteFile",
+        "QueryDirectory",
+        "NotifyChangeDirectory",
         "FilesystemControl",
         "DeviceIoControl",
         "InternalDeviceIoControl",
@@ -64,12 +68,12 @@ PARTIAL_SUPPORTED_COLUMNS = {
 }
 
 
-def are_we_better_than_procmon(pml_record, csv_record, column_name, i):
+def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, csv_value, i):
     if pml_record["Operation"] != csv_record["Operation"]:
         return False
 
     if column_name == "Detail":
-        if "Reg" in csv_record["Operation"]:
+        if "Registry" == csv_record["Event Class"]:
             if "Data: " in csv_record["Detail"] and "Type: REG_" in csv_record["Detail"]:
                 pml_data = re.search("Data: (.*)", pml_record["Detail"]).group(1)
                 csv_data = re.search("Data: (.*)", csv_record["Detail"]).group(1)
@@ -83,6 +87,10 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, i):
                     return True
                 elif csv_data in pml_data and csv_data[:16] == pml_data[:16]:
                     return True
+        elif "File System" == csv_record["Event Class"]:
+            if "QueryDirectory" == csv_record["Operation"]:
+                if csv_value in pml_value:
+                    return True  # they don't write long directories sometimes
     return False
 
 
@@ -122,8 +130,28 @@ def check_pml_equals_csv(csv_reader, pml_reader):
                     # only the S-1-5-... form
                     pml_value = pml_value[:pml_value.index("Impersonating")]
                     csv_value = csv_value[:csv_value.index("Impersonating")]
+                elif column_name == "Detail" and "FileInformationClass: " in pml_value:
+                    # Field was added only in recent version
+                    pml_detail = pml_value.split(", ")
+                    pml_value = ", ".join([d for d in pml_detail if "FileInformationClass" not in d])
+                    csv_detail = []
+
+                    if "FileInformationClass: " in csv_value:
+                        idx = 0
+                        for detail in csv_value.split(", "):
+                            if ":" not in detail or detail[:detail.index(":")].isnumeric():
+                                idx += 1
+                            if detail.startswith("FileInformationClass: "):
+                                if idx == 2 and str(idx) in pml_record.details:
+                                    # They stupid
+                                    csv_detail.append("{}: {}".format(str(idx), pml_record.details[str(idx)]))
+                            else:
+                                csv_detail.append(detail)
+
+                        csv_value = ", ".join(csv_detail)
                 if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
-                                                                             column_name, i):
+                                                                             column_name, pml_value, csv_value, i):
+                    print("In Event {}".format(repr(pml_record)))
                     raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
                         i + 1, column_name, pml_value, csv_value))
 
