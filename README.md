@@ -152,8 +152,8 @@ The PML format is very complex so there are some features that are not supported
         - [ ] QueryVolumeInformation
         - [ ] SetVolumeInformation
         - [ ] DirectoryControl
-        - [ ] FileSystemControl
-        - [ ] DeviceIoControl
+        - [x] FileSystemControl
+        - [x] DeviceIoControl
         - [ ] InternalDeviceIoControl
         - [ ] Shutdown
         - [ ] LockUnlockFile

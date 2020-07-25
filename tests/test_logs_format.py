@@ -41,6 +41,10 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "CreateFile",
         "ReadFile",
         "WriteFile",
+        "FilesystemControl",
+        "DeviceIoControl",
+        "InternalDeviceIoControl",
+        "Shutdown",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
 
@@ -51,6 +55,10 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "CreateFile",
         "ReadFile",
         "WriteFile",
+        "FilesystemControl",
+        "DeviceIoControl",
+        "InternalDeviceIoControl",
+        "Shutdown",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
 }

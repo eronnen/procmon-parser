@@ -7,7 +7,7 @@ from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperatio
     RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass, \
     FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
     get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
-    FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority
+    FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
     read_utf16_multisz, read_u64, read_filetime, read_s64
 
@@ -424,10 +424,65 @@ def get_filesystem_read_write_file_details(io, metadata, event, details_io, extr
         event.details["Priority"] = FilesystemPriority.get(priority, "0x{:x}".format(priority))
 
 
+def get_filesystem_ioctl_details(io, metadata, event, details_io, extra_detail_io):
+    details_io.seek(0x8, 1)
+    write_length = read_u32(details_io)
+    read_length = read_u32(details_io)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+
+    details_io.seek(0x4, 1)
+    if metadata.sizeof_pvoid == 8:
+        details_io.seek(4, 1)  # Padding for 64 bit
+
+    ioctl = read_u32(details_io)
+    event.details["Control"] = get_ioctl_name(ioctl)
+    if event.details["Control"] in ["FSCTL_OFFLOAD_READ", "FSCTL_GET_REPARSE_POINT", "FSCTL_READ_RAW_ENCRYPTED"]:
+        event.category = "Read"
+    elif event.details["Control"] in ["FSCTL_OFFLOAD_WRITE", "FSCTL_MOVE_FILE", "FSCTL_DELETE_REPARSE_POINT",
+                                      "FSCTL_WRITE_RAW_ENCRYPTED", "FSCTL_PIPE_TRANSCEIVE",
+                                      "FSCTL_PIPE_INTERNAL_TRANSCEIVE"]:
+        event.category = "Write"
+    elif event.details["Control"] in ["FSCTL_SET_COMPRESSION", "FSCTL_WRITE_PROPERTY_DATA", "FSCTL_SET_OBJECT_ID",
+                                      "FSCTL_DELETE_OBJECT_ID", "FSCTL_SET_REPARSE_POINT", "FSCTL_SET_SPARSE",
+                                      "FSCTL_SET_ENCRYPTION", "FSCTL_CREATE_USN_JOURNAL",
+                                      "FSCTL_WRITE_USN_CLOSE_RECORD", "FSCTL_EXTEND_VOLUME",
+                                      "FSCTL_DELETE_USN_JOURNAL"]:
+        event.category = "Write Metadata"
+    elif event.details["Control"] in ["FSCTL_QUERY_RETRIEVAL_POINTERS", "FSCTL_GET_COMPRESSION",
+                                      "FSCTL_QUERY_FAT_BPB", "FSCTL_QUERY_FAT_BPB",
+                                      "FSCTL_FILESYSTEM_GET_STATISTICS", "FSCTL_GET_NTFS_VOLUME_DATA",
+                                      "FSCTL_GET_NTFS_FILE_RECORD", "FSCTL_GET_VOLUME_BITMAP",
+                                      "FSCTL_GET_RETRIEVAL_POINTERS", "FSCTL_IS_VOLUME_DIRTY",
+                                      "FSCTL_READ_PROPERTY_DATA", "FSCTL_FIND_FILES_BY_SID", "FSCTL_GET_OBJECT_ID",
+                                      "FSCTL_READ_USN_JOURNAL", "FSCTL_SET_OBJECT_ID_EXTENDED",
+                                      "FSCTL_CREATE_OR_GET_OBJECT_ID", "FSCTL_READ_FILE_USN_DATA",
+                                      "FSCTL_QUERY_USN_JOURNAL"]:
+        event.category = "Read Metadata"
+
+    if event.operation == "FileSystemControl":
+        if event.details["Control"] == "FSCTL_PIPE_INTERNAL_WRITE":
+            event.details["Length"] = write_length
+        elif event.details["Control"] == "FSCTL_OFFLOAD_READ":
+            details_io.seek(0x8, 1)
+            event.details["Offset"] = read_s64(io)
+            event.details["Length"] = read_u64(io)
+        elif event.details["Control"] == "FSCTL_OFFLOAD_WRITE":
+            event.details["Offset"] = read_s64(io)
+            event.details["Length"] = read_u64(io)
+        elif event.details["Control"] == "FSCTL_PIPE_INTERNAL_READ":
+            event.details["Length"] = read_length
+        elif event.details["Control"] in ["FSCTL_PIPE_TRANSCEIVE", "FSCTL_PIPE_INTERNAL_TRANSCEIVE"]:
+            event.details["WriteLength"] = write_length
+            event.details["ReadLength"] = read_length
+
+
 FilesystemSubOperationHandler = {
     FilesystemOperation.CreateFile.name: get_filesystem_create_file_details,
     FilesystemOperation.ReadFile.name: get_filesystem_read_write_file_details,
     FilesystemOperation.WriteFile.name: get_filesystem_read_write_file_details,
+    FilesystemOperation.FileSystemControl.name: get_filesystem_ioctl_details,
+    FilesystemOperation.DeviceIoControl.name: get_filesystem_ioctl_details,
     FilesystemQueryInformationOperation.QueryIdInformation.name: get_filesystem_read_metadata_details,
     FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
     FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_details
