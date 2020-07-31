@@ -1,5 +1,7 @@
 
 import re
+from dateutil.parser import parse
+from datetime import timedelta
 from six import PY2
 from six.moves import zip_longest
 from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
@@ -41,6 +43,12 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "CreateFile",
         "ReadFile",
         "WriteFile",
+        "QueryDirectory",
+        "NotifyChangeDirectory",
+        "FilesystemControl",
+        "DeviceIoControl",
+        "InternalDeviceIoControl",
+        "Shutdown",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
 
@@ -51,17 +59,23 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "CreateFile",
         "ReadFile",
         "WriteFile",
+        "QueryDirectory",
+        "NotifyChangeDirectory",
+        "FilesystemControl",
+        "DeviceIoControl",
+        "InternalDeviceIoControl",
+        "Shutdown",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
 }
 
 
-def are_we_better_than_procmon(pml_record, csv_record, column_name, i):
+def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, csv_value, i):
     if pml_record["Operation"] != csv_record["Operation"]:
         return False
 
     if column_name == "Detail":
-        if "Reg" in csv_record["Operation"]:
+        if "Registry" == csv_record["Event Class"]:
             if "Data: " in csv_record["Detail"] and "Type: REG_" in csv_record["Detail"]:
                 pml_data = re.search("Data: (.*)", pml_record["Detail"]).group(1)
                 csv_data = re.search("Data: (.*)", csv_record["Detail"]).group(1)
@@ -75,6 +89,10 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, i):
                     return True
                 elif csv_data in pml_data and csv_data[:16] == pml_data[:16]:
                     return True
+        elif "File System" == csv_record["Event Class"]:
+            if "QueryDirectory" == csv_record["Operation"]:
+                if csv_value in pml_value:
+                    return True  # they don't write long directories sometimes
     return False
 
 
@@ -114,8 +132,28 @@ def check_pml_equals_csv(csv_reader, pml_reader):
                     # only the S-1-5-... form
                     pml_value = pml_value[:pml_value.index("Impersonating")]
                     csv_value = csv_value[:csv_value.index("Impersonating")]
+                elif column_name == "Detail" and "FileInformationClass: " in pml_value:
+                    # Field was added only in recent version
+                    pml_detail = pml_value.split(", ")
+                    pml_value = ", ".join([d for d in pml_detail if "FileInformationClass" not in d])
+                    csv_detail = []
+
+                    if "FileInformationClass: " in csv_value:
+                        idx = 0
+                        for detail in csv_value.split(", "):
+                            if ":" not in detail or detail[:detail.index(":")].isnumeric():
+                                idx += 1
+                            if detail.startswith("FileInformationClass: "):
+                                if idx == 2 and str(idx) in pml_record.details:
+                                    # They stupid
+                                    csv_detail.append("{}: {}".format(str(idx), pml_record.details[str(idx)]))
+                            else:
+                                csv_detail.append(detail)
+
+                        csv_value = ", ".join(csv_detail)
                 if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
-                                                                             column_name, i):
+                                                                             column_name, pml_value, csv_value, i):
+                    print("In Event {}".format(repr(pml_record)))
                     raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
                         i + 1, column_name, pml_value, csv_value))
 
@@ -126,6 +164,10 @@ def test_pml_equals_csv_32bit(csv_reader_windows7_32bit, pml_reader_windows7_32b
 
 def test_pml_equals_csv_64bit(csv_reader_windows10_64bit, pml_reader_windows10_64bit):
     check_pml_equals_csv(csv_reader_windows10_64bit, pml_reader_windows10_64bit)
+
+
+def test_pml_equals_csv_specific_events(specific_events_logs_readers):
+    check_pml_equals_csv(specific_events_logs_readers[0], specific_events_logs_readers[1])
 
 
 def test_processes_windows_10_64bit(pml_reader_windows10_64bit):
@@ -156,3 +198,10 @@ def test_windows_10_64bit_system_details(pml_reader_windows10_64bit):
     assert system_details["Logical Processors"] == 2
     assert system_details["Memory (RAM)"] == "1.99 GB"
     assert system_details["System Type"] == "64-bit"
+
+
+def test_date_parsing(csv_reader_windows10_64bit, pml_reader_windows10_64bit):
+    pml_date1 = next(pml_reader_windows10_64bit).date()
+    csv_event1 = next(csv_reader_windows10_64bit)
+    csv_date1 = parse(csv_event1["Date & Time"]) + timedelta(microseconds=parse(csv_event1["Time of Day"]).microsecond)
+    assert pml_date1 == csv_date1

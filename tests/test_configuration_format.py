@@ -34,27 +34,40 @@ def test_build_nonexistent_config_option():
 def test_build_mistyped_rule():
     config = {
         u"FilterRules": [
-            Rule('Path', 'contains', u'1337', True),
-            Rule('pid', 'is_not', u'1338', True),
-            Rule('Event_class', 'is', u'Profiling', False),
+            Rule('Path', 'contains', '1337', True),
+            Rule('pid', 'is_not', '1338', True),
+            Rule('Event_class', 'is', 'Profiling', False),
             u"SomeString",
         ]
     }
     with pytest.raises(AttributeError):
         _ = dumps_configuration(config)
 
+    with pytest.raises(TypeError):
+        _ = Rule('Path', 'ends_with', 12345, False)
+
 
 def test_build_mistyped_path_config_option():
     config = {
         "SymbolPath": [
-            Rule('Path', 'contains', u'1337', True),
-            Rule('pid', 'is_not', u'1338', True),
-            Rule('Event_class', 'is', u'Profiling', False),
-            Rule('Path', 'ends_with', u'$Mft', False),
+            Rule('Path', 'contains', '1337', True),
+            Rule('pid', 'is_not', '1338', True),
+            Rule('Event_class', 'is', 'Profiling', False),
+            Rule('Path', 'ends_with', '$Mft', False),
         ]
     }
     with pytest.raises(TypeError):
         _ = dumps_configuration(config)
+
+
+def test_rule_equals():
+    r1 = Rule('Path', 'contains', '1337', True)
+    r2 = Rule('Path', 'contains', u'1337', True)
+    assert r1 == r2
+
+    r3 = Rule('Path', 'contains', u'1337', False)
+    assert not r1 == r3
+    assert r1 != r3
 
 
 def test_build_parsed_configuration(raw_config_full):
