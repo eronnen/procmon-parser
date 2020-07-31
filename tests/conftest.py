@@ -19,28 +19,29 @@ else:
 RESOURCES_DIRECTORY = os.path.join(os.path.dirname(__file__), "resources")
 
 
+def decompress_resource(resource_filename):
+    with open(os.path.join(RESOURCES_DIRECTORY, resource_filename), "rb") as f:
+        return zlib.decompress(f.read())
+
+
 @pytest.fixture(scope='session')
 def pml_logs_windows7_32bit():
-    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests32bitUTCPML"), "rb") as f:
-        return zlib.decompress(f.read())
+    return decompress_resource("CompressedLogfileTests32bitUTCPML")
 
 
 @pytest.fixture(scope='session')
 def csv_logs_windows7_32bit():
-    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests32bitUTCCSV"), "rb") as f:
-        return zlib.decompress(f.read())
+    return decompress_resource("CompressedLogfileTests32bitUTCCSV")
 
 
 @pytest.fixture(scope='session')
 def pml_logs_windows10_64bit():
-    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests64bitUTCPML"), "rb") as f:
-        return zlib.decompress(f.read())
+    return decompress_resource("CompressedLogfileTests64bitUTCPML")
 
 
 @pytest.fixture(scope='session')
 def csv_logs_windows10_64bit():
-    with open(os.path.join(RESOURCES_DIRECTORY, "CompressedLogfileTests64bitUTCCSV"), "rb") as f:
-        return zlib.decompress(f.read())
+    return decompress_resource("CompressedLogfileTests64bitUTCCSV")
 
 
 def get_pml_log_reader(pml_logs):
@@ -81,6 +82,16 @@ def pml_reader_windows10_64bit(pml_logs_windows10_64bit):
 @pytest.fixture(scope='function')
 def csv_reader_windows10_64bit(csv_logs_windows10_64bit):
     return get_csv_log_reader(csv_logs_windows10_64bit)
+
+
+@pytest.fixture(scope='function',
+                params=[('CompressedLogFileUTC32FilesystemCSV', 'CompressedLogFileUTC32FilesystemPML'),
+                        ('CompressedLogFileUTC64FilesystemCSV', 'CompressedLogFileUTC64FilesystemPML'),
+                        ('CompressedLogFileUTC64ProcessCSV', 'CompressedLogFileUTC64ProcessPML'),
+                        ('CompressedLogFileUTC64RegistryCSV', 'CompressedLogFileUTC64RegistryPML')])
+def specific_events_logs_readers(request):
+    return get_csv_log_reader(decompress_resource(request.param[0])), \
+           get_pml_log_reader(decompress_resource(request.param[1]))
 
 
 @pytest.fixture()

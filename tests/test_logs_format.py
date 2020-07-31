@@ -1,5 +1,7 @@
 
 import re
+from dateutil.parser import parse
+from datetime import timedelta
 from six import PY2
 from six.moves import zip_longest
 from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
@@ -164,6 +166,10 @@ def test_pml_equals_csv_64bit(csv_reader_windows10_64bit, pml_reader_windows10_6
     check_pml_equals_csv(csv_reader_windows10_64bit, pml_reader_windows10_64bit)
 
 
+def test_pml_equals_csv_specific_events(specific_events_logs_readers):
+    check_pml_equals_csv(specific_events_logs_readers[0], specific_events_logs_readers[1])
+
+
 def test_processes_windows_10_64bit(pml_reader_windows10_64bit):
     processes = pml_reader_windows10_64bit.processes()
     assert 25 == len(processes)
@@ -192,3 +198,10 @@ def test_windows_10_64bit_system_details(pml_reader_windows10_64bit):
     assert system_details["Logical Processors"] == 2
     assert system_details["Memory (RAM)"] == "1.99 GB"
     assert system_details["System Type"] == "64-bit"
+
+
+def test_date_parsing(csv_reader_windows10_64bit, pml_reader_windows10_64bit):
+    pml_date1 = next(pml_reader_windows10_64bit).date()
+    csv_event1 = next(csv_reader_windows10_64bit)
+    csv_date1 = parse(csv_event1["Date & Time"]) + timedelta(microseconds=parse(csv_event1["Time of Day"]).microsecond)
+    assert pml_date1 == csv_date1

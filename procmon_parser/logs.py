@@ -128,12 +128,12 @@ class Event(object):
             .format(self.process, self.tid, self.event_class.name, self.operation, self.duration,
                     self.date_filetime, self.result, self.category, self.path, self.details)
 
-    @property
-    def date(self):
+    def date(self, is_utc=True):
         if self.date_filetime is not None:
-            return datetime.datetime.utcfromtimestamp(
-                (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + \
-                   datetime.timedelta(microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
+            from_timestamp = datetime.datetime.utcfromtimestamp if is_utc else datetime.datetime.fromtimestamp
+            return from_timestamp(
+                (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + datetime.timedelta(
+                microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
         else:
             return None
 

@@ -13,7 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/eronnen/procmon-parser.git",
     download_url="https://github.com/eronnen/procmon-parser/archive/v0.3.0.tar.gz",
-    packages=["procmon-parser"],
+    packages=["procmon_parser"],
     install_requires=[
         "enum34;python_version<'3.4'",
         "construct>=2.10.54",
