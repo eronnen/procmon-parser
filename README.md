@@ -27,7 +27,7 @@ Loading configuration of a pre-exported Procmon configuration:
 ```python
 >>> from procmon_parser import load_configuration, dump_configuration, Rule
 >>> with open("ProcmonConfiguration.pmc", "rb") as f:
-...     config = load_configuration(f.read())
+...     config = load_configuration(f)
 >>> config["DestructiveFilter"]
 0
 >>> config["FilterRules"]
@@ -68,8 +68,8 @@ For the raw binary format of PMC files you can refer to the [docs](docs/PMC%20Fo
 53214
 
 >>> first_event = next(pml_reader)  # reading the next event in the log
->>> first_event
-Event("dwm.exe", 932, 1568, "Registry", "RegQueryValue", 7400, 2020-07-12T01:18:10.775242900, 0, "", "HKCU\Software\Microsoft\Windows\DWM\ColorPrevalence", {})
+>>> print(first_event)
+Process Name=dwm.exe, Pid=932, Operation=RegQueryValue, Path="HKCU\Software\Microsoft\Windows\DWM\ColorPrevalence", Time=7/12/2020 1:18:10.7752429 AM
 
 >>> print(first_event.process)  #  Accessing the process of the event
 "C:\Windows\system32\dwm.exe", 932
