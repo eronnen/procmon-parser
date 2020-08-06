@@ -36,7 +36,7 @@ Loading configuration of a pre-exported Procmon configuration:
 
 Adding some new rules
 ```python
->>> new_rules = [Rule('Path', 'contains', '1337', 'include'), Rule('Process_Name', 'is', 'python.exe')]
+>>> new_rules = [Rule('PID', 'is', '1336', 'include'), Rule('Process_Name', 'contains', 'python')]
 >>> config["FilterRules"] = new_rules + config["FilterRules"]
 ```
 

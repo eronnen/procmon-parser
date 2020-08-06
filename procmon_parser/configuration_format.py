@@ -68,7 +68,8 @@ Struct that contains a single rule which can be applied on the process monitor e
     "before_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
     "value" / FixedUTF16CString(lambda this: this.value_length, "value"),
     "after_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
-    "reserved2" / Default(Bytes(5), 0) * "!!Unknown field!!",
+    "int_value" / Rebuild(Int32ul, lambda this: 0 if not this.value.isdigit() else int(this.value)),
+    "reserved2" / Default(Bytes(1), 0) * "!!Unknown field!!",
 
     # To calculate value string in build time
     "value_length" / Pointer(lambda this: this.value_offset,
