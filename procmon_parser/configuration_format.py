@@ -56,6 +56,17 @@ class FontStructAdapter(Adapter):
 
 FontStruct = FontStructAdapter(LOGFONTW)
 
+
+def get_rule_integer_value(column, value):
+    if value.isdigit():
+        return int(value)
+
+    if column == Column.ARCHITECTURE:
+        return 32 if "32" in value else 64
+
+    return 0
+
+
 RawRuleStruct = """
 Struct that contains a single rule which can be applied on the process monitor events.
 """ * Struct(
@@ -68,7 +79,7 @@ Struct that contains a single rule which can be applied on the process monitor e
     "before_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
     "value" / FixedUTF16CString(lambda this: this.value_length, "value"),
     "after_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
-    "int_value" / Rebuild(Int32ul, lambda this: 0 if not this.value.isdigit() else int(this.value)),
+    "int_value" / Rebuild(Int32ul, lambda this: get_rule_integer_value(this.column, this.value)),
     "reserved2" / Default(Bytes(1), 0) * "!!Unknown field!!",
 
     # To calculate value string in build time
