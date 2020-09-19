@@ -262,7 +262,9 @@ class PMLStreamReader(PMLStructReader):
             return self._hostnames_table[hostname_ip]
         if is_ipv4:
             return str(IPv4Address(hostname_ip[:4]))
-        return str(IPv6Address(hostname_ip))
+
+        # remove leading zeroes in ipv6 like procmon does...
+        return ':'.join(['{:x}'.format(int(i, 16)) for i in IPv6Address(hostname_ip).exploded.split(':')])
 
     def __port_idx(self, port, is_tcp):
         """Get the actual port name from port value

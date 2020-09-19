@@ -70,6 +70,15 @@ PARTIAL_SUPPORTED_COLUMNS = {
 }
 
 
+def is_operation_not_unknown(operation):
+    if operation in ["SetStorageReservedIdInformation", "QuerySatLxInformation",
+                                   "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
+                                   "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
+                                   "QueryCaseSensitiveInformationForceAccessCheck"]:
+        return True  # These operations were added in 3.60 and are not recognized by 3.53
+    return False
+
+
 def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, csv_value, i):
     if pml_record["Operation"] != csv_record["Operation"]:
         return False
@@ -110,6 +119,10 @@ def check_pml_equals_csv(csv_reader, pml_reader):
             if PY2:
                 continue  # problem
             raise
+
+        if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>":
+            if is_operation_not_unknown(pml_compatible_record["Operation"]):
+                continue
 
         for column in SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]
