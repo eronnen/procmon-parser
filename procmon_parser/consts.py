@@ -262,6 +262,12 @@ class FilesystemQueryInformationOperation(enum.IntEnum):
     QueryDesiredStorageClassInformation = 0x43
     QueryStatInformation = 0x44
     QueryMemoryPartitionInformation = 0x45
+    QuerySatLxInformation = 0x46
+    QueryCaseSensitiveInformation = 0x47
+    QueryLinkInformationEx = 0x48
+    QueryLinkInfomraitonBypassAccessCheck = 0x49
+    QueryStorageReservedIdInformation = 0x4a
+    QueryCaseSensitiveInformationForceAccessCheck = 0x4b
 
 
 class FilesystemSetInformationOperation(enum.IntEnum):
@@ -280,6 +286,7 @@ class FilesystemSetInformationOperation(enum.IntEnum):
     SetDispositionInformationEx = 0x40
     SetRenameInformationEx = 0x41
     SetRenameInformationExBypassAccessCheck = 0x42
+    SetStorageReservedIdInformation = 0x4a
 
 
 class FilesysemDirectoryControlOperation(enum.IntEnum):
