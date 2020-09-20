@@ -90,7 +90,7 @@ For the raw binary format of PML files you can refer to the [docs](docs/PML%20Fo
 
 Currently the parser is only tested with PML files saved by *Procmon.exe* of versions v3.4.0 or higher.
 
-### Unsupported features
+### Supported features
 
 The PML format is very complex so there are some features that are not supported yet:
 - [ ] Getting the IRP name of the operation.
