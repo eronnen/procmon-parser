@@ -51,6 +51,9 @@ class Module(object):
             .format(self.base_address, self.size, self.path, self.version, self.company,
                     self.description, self.timestamp)
 
+    def __hash__(self):
+        return hash((self.base_address, self.size, self.path, self.timestamp))
+
 
 class Process(object):
     """Information about a process in the system
@@ -94,6 +97,9 @@ class Process(object):
                     self.is_process_64bit, self.integrity, self.user, self.process_name, self.image_path,
                     self.command_line, self.company, self.version, self.description)
 
+    def __hash__(self):
+        return hash((self.pid, self.parent_pid, self.image_path, self.command_line, self.start_time, self.end_time))
+
 
 class Event(object):
     def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=0,
@@ -127,6 +133,9 @@ class Event(object):
         return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \
             .format(self.process, self.tid, self.event_class.name, self.operation, self.duration,
                     self.date_filetime, self.result, self.category, self.path, self.details)
+
+    def __hash__(self):
+        return hash((self.process.pid, self.tid, self.operation, self.date_filetime))
 
     def date(self, is_utc=True):
         if self.date_filetime is not None:
