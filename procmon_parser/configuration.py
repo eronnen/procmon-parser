@@ -36,6 +36,9 @@ class Rule(object):
     def __repr__(self):
         return "Rule({}, {}, \"{}\", {})".format(str(self.column), str(self.relation), self.value, str(self.action))
 
+    def __hash__(self):
+        return hash((self.column.value, self.relation.value, self.value, self.action.value))
+
 
 class Font(object):
     """A font attributes for procmon, like in LOGFONTW structure

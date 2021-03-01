@@ -53,3 +53,18 @@ class ProcmonLogsReader(object):
         """Return the system details of the computer which captured the logs (like Tools -> System Details in Procmon)
         """
         return self._struct_readear.system_details()
+
+
+def read_all_events_from_pml(file):
+    """
+    Helper function that reads all the events from a PML file.
+    :param file: the path to the PML file or an open file object.
+    :return: a list of Event objects from the file.
+    """
+    if not hasattr(file, 'read'):
+        with open(file, "rb") as f:
+            pml_reader = PMLStreamReader(f)
+            return list(pml_reader)
+    else:
+        pml_reader = PMLStreamReader(file)
+        return list(pml_reader)
