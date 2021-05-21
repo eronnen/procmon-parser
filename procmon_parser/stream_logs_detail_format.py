@@ -8,7 +8,7 @@ from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperatio
     FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
     get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
     FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name, FileInformationClass, \
-    get_filesysyem_notify_change_flags
+    get_filesysyem_notify_change_flags, FilesystemSetInformationOperation
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
     read_utf16_multisz, read_u64, read_filetime, read_s64
 
@@ -560,6 +560,17 @@ def get_filesystem_ioctl_details(io, metadata, event, details_io, extra_detail_i
             event.details["ReadLength"] = read_length
 
 
+def get_filesystem_setdispositioninformation_details(io, metadata, event, details_io, extra_detail_io):
+    is_delete = bool(read_u8(io))
+    io.seek(3, 1)  # Padding
+
+    if is_delete:
+        event.details["Delete"] = "True"
+        event.category = "Write"
+    else:
+        event.details["Delete"] = "False"
+
+
 FilesystemSubOperationHandler = {
     FilesystemOperation.CreateFile.name: get_filesystem_create_file_details,
     FilesystemOperation.ReadFile.name: get_filesystem_read_write_file_details,
@@ -570,6 +581,7 @@ FilesystemSubOperationHandler = {
     FilesystemOperation.DeviceIoControl.name: get_filesystem_ioctl_details,
     FilesystemQueryInformationOperation.QueryIdInformation.name: get_filesystem_read_metadata_details,
     FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
+    FilesystemSetInformationOperation.SetDispositionInformationFile.name: get_filesystem_setdispositioninformation_details,
 }
 
 
