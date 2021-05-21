@@ -49,6 +49,7 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "DeviceIoControl",
         "InternalDeviceIoControl",
         "Shutdown",
+        "SetDispositionInformationFile"
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
 
@@ -65,6 +66,7 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "DeviceIoControl",
         "InternalDeviceIoControl",
         "Shutdown",
+        "SetDispositionInformationFile",
     ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
         [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
 }
