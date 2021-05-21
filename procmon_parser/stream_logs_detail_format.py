@@ -581,7 +581,8 @@ FilesystemSubOperationHandler = {
     FilesystemOperation.DeviceIoControl.name: get_filesystem_ioctl_details,
     FilesystemQueryInformationOperation.QueryIdInformation.name: get_filesystem_read_metadata_details,
     FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
-    FilesystemSetInformationOperation.SetDispositionInformationFile.name: get_filesystem_setdispositioninformation_details,
+    FilesystemSetInformationOperation.SetDispositionInformationFile.name:
+        get_filesystem_setdispositioninformation_details,
 }
 
 
