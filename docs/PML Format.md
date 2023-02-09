@@ -8,31 +8,36 @@ The file starts with a header:
 
 **PML Header**
 
-| Offset | Data Type      | Description                                           |
-| ------ | -------------- | ----------------------------------------------------- |
-| 0x0    | char[4]        | Signature - "PML_"                                    |
-| 0x4    | Uint32         | The version of the PML file. I assume its 9           |
-| 0x8    | Uint32         | 1 if the system is 64 bit, 0 otherwise                |
-| 0xC    | Wchar_t[0x10]  | The computer name                                     |
-| 0x2C   | Wchar_t[0x104] | The system root path (like "C:\Windows")              |
-| 0x234  | Uint32         | The total number of events in the log file            |
-| 0x238  | Uint64         | Unknown                                               |
-| 0x240  | Uint64         | File offset to the start of the events array.         |
-| 0x248  | Uint64         | File offset to an array of offsets to all the events. |
-| 0x250  | Uint64         | File offset to the array of processes.                |
-| 0x258  | Uint64         | File offset to the array of strings.                  |
-| 0x260  | Uint64         | File offset to the icons array.                       |
-| 0x268  | Byte[0xc]      | Unknown                                               |
-| 0x274  | Uint32         | Windows version major number                          |
-| 0x278  | Uint32         | Windows version minor number                          |
-| 0x27C  | Uint32         | Windows build number                                  |
-| 0x280  | Uint32         | Windows build number after the decimal point          |
-| 0x284  | Wchar_t[0x32]  | The name of the service pack (optional)               |
-| 0x2A6  | Byte[0xd6]     | Unknown                                               |
-| 0x38C  | Uint32         | Number of logical processors                          |
-| 0x390  | Uint64         | The size of the RAM                                   |
-| 0x398  | Uint64         | File offset to the start of the events array (again). |
-| 0x3A0  | Uint64         | File offset to hosts and ports arrays.                |
+| Offset | Data Type      | Size (bytes)  | Description                                             |
+| ------ | -------------- | ------------- | ------------------------------------------------------- |
+| 0x000  | char[4]        |   4           | Magic Signature - `'PML_'`.                             |
+| 0x004  | uint32         |   4           | Version of the PML file. `9` in the current version.    |
+| 0x008  | uint32         |   4           | System bitness: 1 if the system is 64 bit, 0 otherwise. |
+| 0x00C  | wchar_t[0x10]  |  16           | Name of the computer (that did the capture).            |
+| 0x02C  | wchar_t[0x104] |  260          | System root path (e.g. "C:\Windows").                   |
+| 0x234  | uint32         |    4          | Total number of events in the log file.                 |
+| 0x238  | uint64         |    8          |  ?  (seems to be unused)                                |
+| 0x240  | uint64         |    8          | File offset to the start of the events array.           |
+| 0x248  | uint64         |    8          | File offset to an array of offsets to all the events.   |
+| 0x250  | uint64         |    8          | File offset to the array of processes.                  |
+| 0x258  | uint64         |    8          | File offset to the array of strings.                    |
+| 0x260  | uint64         |    8          | File offset to the icons array.                         |
+| 0x268  | uint64         |    8          | [`SYSTEM_INFO`](https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info)`.lpMaximumApplicationAddress`): Maximum User Address |
+| 0x270  | uint32         |    4          | [`OSVERSIONINFOEXW`](https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-osversioninfoexw)`.dwOSVersionInfoSize`) sizeof(OSVERSIONINFOEXW).|
+| 0x274  | uint32         |    8          | `OSVERSIONINFOEXW.dwMajorVersion`: Major version number of the operating system.        |
+| 0x278  | uint32         |    8          | `OSVERSIONINFOEXW.dwMinorVersion`: Minor version number of the operating system.        |
+| 0x27C  | uint32         |    8          | `OSVERSIONINFOEXW.dwBuildNumber`: Build number of the operating system.                 |
+| 0x280  | uint32         |    8          | `OSVERSIONINFOEXW.dwPlatformId`: Operating system platform.                             |
+| 0x284  | wchar_t[0x100] |  256          | `OSVERSIONINFOEXW.szCSDVersion`: Indicates the latest Service Pack installed.           |
+| 0x384  | uint16         |    2          | `OSVERSIONINFOEXW.wServicePackMajor`:  Major version number of the latest Service Pack. |
+| 0x386  | uint16         |    2          | `OSVERSIONINFOEXW.wServicePackMinor`:  Minor version number of the latest Service Pack. |
+| 0x388  | uint16         |    2          | `OSVERSIONINFOEXW.wSuiteMask`: Bit mask that identifies the product suites available.   |
+| 0x38A  | uint8          |    1          | `OSVERSIONINFOEXW.wProductType`: Additional information about the system.               |
+| 0x38B  | uint8          |    1          | `OSVERSIONINFOEXW.wReserved`: Reserved for future use.                                  |
+| 0x38C  | uint32         |    8          | [`SYSTEM_INFO`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info)`.dwNumberOfProcessors`) Number of logical processors. |
+| 0x390  | uint64         |    8          | [`MEMORYSTATUSEX`](https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/ns-sysinfoapi-memorystatusex)`.ullTotalPhys`: Total physical memory (in bytes). |
+| 0x398  | uint64         |    8          | File offset to the start of the events array (again).                                  |
+| 0x3A0  | uint64         |    8          | File offset to hosts and ports arrays.                                                 |
 
 The header has file pointers to 5 important arrays:
 
