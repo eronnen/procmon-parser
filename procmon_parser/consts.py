@@ -125,6 +125,9 @@ class RegistryOperation(enum.IntEnum):
     RegQueryMultipleValueKey = 15
     RegSetKeySecurity = 16
     RegQueryKeySecurity = 17
+    RegSaveKey = 18
+    RegLoadKey2 = 19
+    RegRestoreKey = 20
 
 
 class NetworkOperation(enum.IntEnum):

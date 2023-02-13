@@ -1,11 +1,9 @@
-
 import re
 from dateutil.parser import parse
 from datetime import timedelta
 from six import PY2
 from six.moves import zip_longest
 from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
-
 
 SUPPORTED_COLUMNS = [
     Column.TIME_OF_DAY,
@@ -36,47 +34,53 @@ SUPPORTED_COLUMNS = [
 ]
 
 PARTIAL_SUPPORTED_COLUMNS = {
-    Column.DETAIL: [
-        "CloseFile",
-        "QueryRemoteProtocolInformation",
-        "QueryIdInformation",
-        "CreateFile",
-        "ReadFile",
-        "WriteFile",
-        "QueryDirectory",
-        "NotifyChangeDirectory",
-        "FilesystemControl",
-        "DeviceIoControl",
-        "InternalDeviceIoControl",
-        "Shutdown",
-        "SetDispositionInformationFile"
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
+    Column.DETAIL: ["TCP " + op.name for op in NetworkOperation] +
+                   ["UDP " + op.name for op in NetworkOperation] +
+                   [op.name for op in RegistryOperation] +
+                   [op.name for op in ProcessOperation] +
+                   [
+                       "CloseFile",
+                       "QueryRemoteProtocolInformation",
+                       "QueryIdInformation",
+                       "CreateFile",
+                       "ReadFile",
+                       "WriteFile",
+                       "QueryDirectory",
+                       "NotifyChangeDirectory",
+                       "FilesystemControl",
+                       "DeviceIoControl",
+                       "InternalDeviceIoControl",
+                       "Shutdown",
+                       "SetDispositionInformationFile"
+                   ],
 
-    Column.CATEGORY: [
-        "CloseFile",
-        "QueryRemoteProtocolInformation",
-        "QueryIdInformation",
-        "CreateFile",
-        "ReadFile",
-        "WriteFile",
-        "QueryDirectory",
-        "NotifyChangeDirectory",
-        "FilesystemControl",
-        "DeviceIoControl",
-        "InternalDeviceIoControl",
-        "Shutdown",
-        "SetDispositionInformationFile",
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
+    Column.CATEGORY: ["TCP " + op.name for op in NetworkOperation] +
+                     ["UDP " + op.name for op in NetworkOperation] +
+                     [op.name for op in RegistryOperation] +
+                     [op.name for op in ProcessOperation] +
+                     [
+                         "CloseFile",
+                         "QueryRemoteProtocolInformation",
+                         "QueryIdInformation",
+                         "CreateFile",
+                         "ReadFile",
+                         "WriteFile",
+                         "QueryDirectory",
+                         "NotifyChangeDirectory",
+                         "FilesystemControl",
+                         "DeviceIoControl",
+                         "InternalDeviceIoControl",
+                         "Shutdown",
+                         "SetDispositionInformationFile",
+                     ]
 }
 
 
 def is_operation_not_unknown(operation):
     if operation in ["SetStorageReservedIdInformation", "QuerySatLxInformation",
-                                   "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
-                                   "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
-                                   "QueryCaseSensitiveInformationForceAccessCheck"]:
+                     "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
+                     "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
+                     "QueryCaseSensitiveInformationForceAccessCheck"]:
         return True  # These operations were added in 3.60 and are not recognized by 3.53
     return False
 
@@ -109,7 +113,6 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
 
 def check_pml_equals_csv(csv_reader, pml_reader):
     first_event_date = None
-    i = 0
     for i, (csv_record, pml_record) in enumerate(zip_longest(csv_reader, pml_reader)):
         assert csv_record is not None, "PML reader has read more events then the CSV reader after {} records.".format(i)
         assert pml_record is not None, "CSV reader has read more events then the PML reader after {} records.".format(i)
@@ -133,7 +136,7 @@ def check_pml_equals_csv(csv_reader, pml_reader):
             if pml_value != csv_value:
                 raise AssertionError(
                     "Event {}, Column {}: PMl=\"{}\", CSV=\"{}\".\n PML Event: {}\nCSV Event: {}".format(
-                        i+1, column_name, pml_value, csv_value, repr(pml_record), csv_record))
+                        i + 1, column_name, pml_value, csv_value, repr(pml_record), csv_record))
 
         for column in PARTIAL_SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]

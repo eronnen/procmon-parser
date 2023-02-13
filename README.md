@@ -136,6 +136,9 @@ The PML format is very complex so there are some features (unchecked in the list
         - [x] RegQueryMultipleValueKey
         - [x] RegSetKeySecurity
         - [x] RegQueryKeySecurity
+        - [x] RegSaveKey
+        - [x] RegLoadKey
+        - [x] RegRestoreKey
     - [ ] Filesystem Operations
         - [ ] VolumeDismount
         - [ ] VolumeMount
