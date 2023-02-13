@@ -36,7 +36,9 @@ class Header(object):
         # Docs of this table's layout are in "docs\PML Format.md"
         self.icon_table_offset = read_u64(stream)
 
-        stream.seek(12, 1)  # Unknown fields
+        self.maximum_application_address = read_u64(stream)
+
+        self.os_version_info_size = read_u32(stream)
         self.windows_major_number = read_u32(stream)
         self.windows_minor_number = read_u32(stream)
         self.windows_build_number = read_u32(stream)

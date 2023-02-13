@@ -309,6 +309,12 @@ class PMLStructReader(object):
     def number_of_events(self):
         return self.header.number_of_events
 
+    @property
+    def maximum_application_address(self):
+        """Return the highest possible user land address.
+        """
+        return self.header.maximum_application_address
+
     def processes(self):
         """Return a list of all the known processes in the log file
         """
