@@ -216,7 +216,6 @@ class SymbolResolver:
             SYMOPT.SYMOPT_CASE_INSENSITIVE | SYMOPT.SYMOPT_UNDNAME | SYMOPT.SYMOPT_DEFERRED_LOADS |
             SYMOPT.SYMOPT_LOAD_LINES | SYMOPT.SYMOPT_OMAP_FIND_NEAREST | SYMOPT.SYMOPT_FAIL_CRITICAL_ERRORS |
             SYMOPT.SYMOPT_INCLUDE_32BIT_MODULES | SYMOPT.SYMOPT_AUTO_PUBLICS)  # 0x12237.
-        self._dbghelp_pid = 0  # TODO: get rid of it, just call SymCleanup when exiting from resolve_stack_trace()
 
         # maximum user-address, used to discern between user and kernel modules (which don't change between processes).
         self._max_user_address: int = procmon_logs_reader.maximum_application_address
@@ -228,11 +227,6 @@ class SymbolResolver:
             if process.process_name in ["System"] and process.company.lower().startswith("microsoft"):
                 self.system_modules = process.modules
                 break
-
-    def __del__(self):
-        # TODO: remove this if you remove self._dbghelp_pid
-        if self._dbghelp_pid != 0:
-            self._dbghelp.SymCleanup(self._dbghelp_pid)
 
     def find_module(self, event, address: int) -> procmon_parser.Module | None:
         """Try to find the corresponding module given an address from an event stack trace.
@@ -297,15 +291,11 @@ class SymbolResolver:
         if not event.stacktrace or event.stacktrace is None:
             raise RuntimeError("Trying to resolve a stack trace while there is no stack trace.")
 
-        # keep track of dbghelp initialization with the given process.
+        # Initialize dbghelp symbolic information.
         pid = event.process.pid
-        if self._dbghelp_pid != 0:
-            # TODO: don't cleanup if it's the same pid, and the same process?
-            self._dbghelp.SymCleanup(self._dbghelp_pid)
         self._dbghelp.SymInitialize(pid, None, False)
-        self._dbghelp_pid = pid
 
-        logger.debug(f"Stack Trace frames: {len(event.stacktrace)}")
+        logger.debug(f"# Stack Trace frames: {len(event.stacktrace)}")
         logger.debug(f"PID: {pid:#08x}")
 
         # Resolve each of the addresses in the stack trace, frame by frame.
@@ -469,6 +459,9 @@ class SymbolResolver:
 
             yield StackTraceFrameInformation(frame_type, frame_number, address, module, symbol_info, displacement.value,
                                              line, line_displacement.value, source_file_path.value)
+
+        # dbghelp symbol cleanup
+        self._dbghelp.SymCleanup(pid)
 
 
 class DbgHelpUtils:
