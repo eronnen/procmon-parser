@@ -56,10 +56,6 @@ class StackTraceFrameInformation:
     line_displacement: int | None = None
     source_file_path: pathlib.Path | None = None
 
-    def __post_init__(self):
-        if self.line_info:
-            logger.debug(f"StackTraceFrameInformation: {self.line_info.FileName}")
-
     @property
     def frame(self) -> str:
         return f"{self.frame_type.name[0]} {self.frame_number}"
@@ -536,26 +532,3 @@ class DbgHelpUtils:
             return None
 
         return arch_dir
-
-
-if __name__ == "__main__":
-    from procmon_parser import ProcmonLogsReader
-    import pathlib
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    p = pathlib.Path(r"G:\Appdata\Python\procmon-parser\tests\src\FileSystemOperations\x64\Release\Logfile.PML")
-
-    with p.open("rb") as f:
-        plr = ProcmonLogsReader(f)
-        sym = SymbolResolver(plr)
-        for idx, ev in enumerate(plr):
-            if idx == 68:
-                # input("press <enter> to continue")
-                # for frame_info in sym.resolve_stack_trace(ev):
-                #    print(f"{frame_info!r}")
-
-                frames = list(sym.resolve_stack_trace(ev))
-                print(StackTraceInformation.pretty_print(frames))
-
-
