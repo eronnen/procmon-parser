@@ -1,3 +1,5 @@
+import sys
+
 from six import PY2
 
 from procmon_parser.configuration import *
@@ -10,6 +12,12 @@ __all__ = [
     'ProcmonLogsReader', 'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
     'Rule', 'Column', 'RuleAction', 'RuleRelation', 'PMLError'
 ]
+
+if sys.platform == "win32" and sys.version_info >= (3, 5, 0):
+    from procmon_parser.symbol_resolver.symbol_resolver import (
+        SymbolResolver, StackTraceFrameInformation, StackTraceInformation)
+
+    __all__.extend(['SymbolResolver', 'StackTraceFrameInformation', 'StackTraceInformation'])
 
 
 class ProcmonLogsReader(object):
