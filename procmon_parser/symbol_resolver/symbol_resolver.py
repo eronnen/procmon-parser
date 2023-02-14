@@ -207,7 +207,7 @@ class SymbolResolver:
         symbol_path = os.environ.get("_NT_SYMBOL_PATH", None)
         if symbol_path is None:
             # resolve TEMP folder and set it at the symbol path.
-            os.environ["_NT_SYMBOL_PATH"] = f"srv*{os.environ['TEMP']}https://msdl.microsoft.com/download/symbols"
+            os.environ["_NT_SYMBOL_PATH"] = f"srv*{os.environ['TEMP']}*https://msdl.microsoft.com/download/symbols"
         logger.debug(f"NT_SYMBOL_PATH: {os.environ['_NT_SYMBOL_PATH']}")
 
         # DbgHelp wrapper instance initialisation and symbolic option setting.
