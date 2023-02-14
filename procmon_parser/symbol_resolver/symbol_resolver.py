@@ -110,22 +110,22 @@ class StackTraceFrameInformation:
     def module_name(self) -> str:
         """Return a string representation of the frame main module name.
         """
-        if not self.module.path:
+        if self.module is None or not self.module.path:
             return "<unknown>"
 
         return pathlib.Path(self.module.path).name
 
     @property
-    def path(self) -> str:
+    def module_path(self) -> str:
         """Return a string representation of the frame main module fully qualified path.
         """
-        if not self.module.path:
+        if self.module is None or not self.module.path:
             return "<unknown>"
 
         return self.module.path
 
     def __repr__(self) -> str:
-        return f"{self.frame} {self.module_name} {self.location} {self.address:#x} {self.path}"
+        return f"{self.frame} {self.module_name} {self.location} {self.address:#x} {self.module_path}"
 
 
 class StackTraceInformation:
@@ -145,15 +145,15 @@ class StackTraceInformation:
         if not resolved_stack_trace:
             return ""
 
-        max_frame = max([len(ssi.frame) for ssi in resolved_stack_trace])
-        max_module = max([len(ssi.module_name) for ssi in resolved_stack_trace])
-        max_location = max([len(ssi.location) for ssi in resolved_stack_trace])
-        max_address = max([len(f"{ssi.address:#x}") for ssi in resolved_stack_trace])
+        max_frame = max(len(stfi.frame) for stfi in resolved_stack_trace)
+        max_module = max(len(stfi.module_name) for stfi in resolved_stack_trace)
+        max_location = max(len(stfi.location) for stfi in resolved_stack_trace)
+        max_address = max(len(f"{stfi.address:#x}") for stfi in resolved_stack_trace)
 
         output = list()
-        for ssi in resolved_stack_trace:
-            output.append(f"{ssi.frame:<{max_frame}} {ssi.module_name:<{max_module}} {ssi.location:<{max_location}} "
-                          f"0x{ssi.address:<{max_address}x} {ssi.path}")
+        for stfi in resolved_stack_trace:
+            output.append(f"{stfi.frame:<{max_frame}} {stfi.module_name:<{max_module}} {stfi.location:<{max_location}} "
+                          f"0x{stfi.address:<{max_address}x} {stfi.module_path}")
 
         return '\n'.join(output)
 
