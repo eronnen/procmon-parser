@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
+"""Module used to resolve symbolic information for a given a stack trace.
+"""
 import ctypes
 import dataclasses
 import enum
@@ -36,32 +38,60 @@ logger = logging.getLogger(__name__)
 
 @enum.unique
 class FrameType(enum.Enum):
+    """Type of frame in a stack trace. Either User (the frame lies in user mode) or Kernel (the frame lies in kernel
+    mode).
+    """
     KERNEL = enum.auto()
     USER = enum.auto()
 
     @staticmethod
-    def from_address(address: int, max_user_address: int):
+    def from_address(address: int, max_user_address: int) -> "FrameType":
+        """Get the type of frame given an address and the maximum possible user address.
+
+        Args:
+            address: The address for which the FrameType should be obtained.
+            max_user_address: The maximum possible user address.
+
+        Returns:
+            A `FrameType` which corresponds to the given address.
+        """
         return FrameType.KERNEL if address > max_user_address else FrameType.USER
 
 
 @dataclasses.dataclass
 class StackTraceFrameInformation:
+    """Contain various symbolic information about a frame in a stacktrace.
+    """
+    #: Type of the frame, either Kernel or User.
     frame_type: FrameType
+    #: The frame number (its position in the stack trace).
     frame_number: int
+    #: Address at which the frame happens.
     address: int
+    #: The module inside which the frame happens.
     module: procmon_parser.Module | None = None
+    #: Symbolic information about the frame.
     symbol_info: SYMBOL_INFOW | None = None
+    #: The displacement in regard to the symbol.
+    #: For example if the symbol name is 'foo' and the displacement is 0x10, then the frame happened at 'foo + 0x10'.
     displacement: int | None = None
+    #: Line information  in regard to the symbol (available only if symbolic source information is present).
     line_info: IMAGEHLP_LINEW64 | None = None
+    #: Displacement from the source code line (that is, the column in the source code line).
     line_displacement: int | None = None
+    #: The source code full file path at which the frame happened.
     source_file_path: pathlib.Path | None = None
 
     @property
     def frame(self) -> str:
+        """Return a string representation of a frame (its `FrameType` and frame number).
+        """
         return f"{self.frame_type.name[0]} {self.frame_number}"
 
     @property
     def location(self) -> str:
+        """Return a string representation of the symbolic location at which the frame happens.
+        """
         if self.symbol_info is None:
             return f"{self.address:#x}"
 
@@ -78,6 +108,8 @@ class StackTraceFrameInformation:
 
     @property
     def module_name(self) -> str:
+        """Return a string representation of the frame main module name.
+        """
         if not self.module.path:
             return "<unknown>"
 
@@ -85,6 +117,8 @@ class StackTraceFrameInformation:
 
     @property
     def path(self) -> str:
+        """Return a string representation of the frame main module fully qualified path.
+        """
         if not self.module.path:
             return "<unknown>"
 
@@ -95,8 +129,22 @@ class StackTraceFrameInformation:
 
 
 class StackTraceInformation:
+    """Class used to prettify a whole stack trace so its output if similar to ProcMon's stack trace window tab for an
+    event.
+    """
     @staticmethod
-    def pretty_print(resolved_stack_trace: list[StackTraceFrameInformation]):
+    def prettify(resolved_stack_trace: list[StackTraceFrameInformation]) -> str:
+        """Prettify a list of `StackTraceFrameInformation` so it's output is similar to the one given by ProcMon.
+
+        Args:
+            resolved_stack_trace: A list of stack trace frame information.
+
+        Returns:
+            A string that match closely the output of a stack trace from ProcMon.
+        """
+        if not resolved_stack_trace:
+            return ""
+
         max_frame = max([len(ssi.frame) for ssi in resolved_stack_trace])
         max_module = max([len(ssi.module_name) for ssi in resolved_stack_trace])
         max_location = max([len(ssi.location) for ssi in resolved_stack_trace])
@@ -111,10 +159,29 @@ class StackTraceInformation:
 
 
 class SymbolResolver:
+    """Main workhorse class for resolving symbolic information from a stack trace.
+    """
     def __init__(self,
-                 plr: "ProcmonLogsReader",
+                 procmon_logs_reader: "ProcmonLogsReader",
                  dll_dir_path: str | pathlib.Path | None = None,
                  skip_symsrv: bool = False) -> None:
+        """Class Initialisation.
+
+        Args:
+            procmon_logs_reader: An instance of the `ProcmonLogsReader` class.
+            dll_dir_path: Path to a directory containing at least `dbghelp.dll`, and optionally `symsrv.dll`.
+            skip_symsrv: Set to True if symbols are available locally on the machine and `_NT_SYMBOL_PATH` environment
+                variable is correctly set. This skips the check for `symsrv.dll` presence altogether.
+
+        Notes:
+            If `dll_dir_path` is None, then the code does its best to find matching installations of the Debugging Tools
+            for Windows (can be installed from the Windows SDK) and Windbg Preview (installed from the Windows Store).
+            If neither can be found, the function raises.
+
+        Raises:
+            ValueError: The provided DLL path is not a valid directory, does not contain the required DLL(s) or the
+            automatic finder could not find the required DLL.
+        """
         # Check if we can find the needed DLLs if not path has been provided.
         # Both DLLs are needed to resolve symbolic information.
         # * 'dbghelp.dll' contains the functionalities to resolve symbols.
@@ -143,7 +210,7 @@ class SymbolResolver:
             os.environ["_NT_SYMBOL_PATH"] = f"srv*{os.environ['TEMP']}https://msdl.microsoft.com/download/symbols"
         logger.debug(f"NT_SYMBOL_PATH: {os.environ['_NT_SYMBOL_PATH']}")
 
-        # DbgHelp wrapper instance initialisation
+        # DbgHelp wrapper instance initialisation and symbolic option setting.
         self._dbghelp = DbgHelp(self.dll_dir_path / "dbghelp.dll")
         self._dbghelp.SymSetOptions(
             SYMOPT.SYMOPT_CASE_INSENSITIVE | SYMOPT.SYMOPT_UNDNAME | SYMOPT.SYMOPT_DEFERRED_LOADS |
@@ -152,12 +219,12 @@ class SymbolResolver:
         self._dbghelp_pid = 0  # TODO: get rid of it, just call SymCleanup when exiting from resolve_stack_trace()
 
         # maximum user-address, used to discern between user and kernel modules (which don't change between processes).
-        self._max_user_address: int = plr.maximum_application_address
+        self._max_user_address: int = procmon_logs_reader.maximum_application_address
 
         # Keep track of all system modules.
-        for process in plr.processes():
+        for process in procmon_logs_reader.processes():
             # Can't remember if System pid has always been 4.
-            # Just check its name (doesn't end with .exe) and Company. That's foolproof enough.
+            # Just check its name (doesn't end with .exe) and company is MS. That should be foolproof enough.
             if process.process_name in ["System"] and process.company.lower().startswith("microsoft"):
                 self.system_modules = process.modules
                 break
@@ -178,9 +245,12 @@ class SymbolResolver:
             If the address lies inside a known module, the module is returned, otherwise the function returns None.
         """
         def is_kernel(addr: int) -> bool:
+            """[Internal] Return whether an address is kernel (True) or not (user mode address: False)."""
             return addr > self._max_user_address
 
         def find_module_from_list(addr: int, modules: list['Module']) -> typing.Optional['Module']:
+            """[Internal] Return an instance of a Module given an address (if the address lies inside the module).
+            """
             for m in modules:
                 base = m.base_address
                 end = m.base_address + m.size
@@ -204,19 +274,25 @@ class SymbolResolver:
         Notes:
             The `ProcmonLogsReader` instance must be instantiated with `should_get_stacktrace` set to True (default).
 
+        Raises:
+            RuntimeError: the given event des not contain any stack trace information. Be sure to call
+            `ProcmonLogsReader` with the `should_get_stacktrace` parameter set to True.
+
         Examples:
+            ```python
             p = pathlib.Path(r"C:\temp\Logfile.PML")
 
             with p.open("rb") as f:
                 log_reader = ProcmonLogsReader(f, should_get_stacktrace=True)
                 sym_resolver = SymbolResolver(log_reader)
-                for i, event in enumerate(plr):
+                for i, event in enumerate(log_reader):
                     print(f"{i:04x} {event!r}")
-                    sym_resolver.resolve_stack_trace(event)
+                    frames = list(sym_resolver.resolve_stack_trace(event))
+                    print(StackTraceInformation.prettify(frames))
+            ```
 
-
-        Returns:
-            TODO: stack trace information.
+        Yields:
+            An instance of `StackTraceFrameInformation` for each of the frame in the stack trace.
         """
         if not event.stacktrace or event.stacktrace is None:
             raise RuntimeError("Trying to resolve a stack trace while there is no stack trace.")
@@ -273,13 +349,13 @@ class SymbolResolver:
                     last_err = ctypes.get_last_error()
                     logger.debug(f"SymFindFileInPathW failed at attempt {j} (error: {last_err:#08x}).")
                     if j == 0 and last_err == 2:  # ERROR_FILE_NOT_FOUND
-                        # 1st try and file was not found: check if the directory exists. If it is give it another try.
+                        # 1st try and file was not found: check if the directory exists. If it is, give it another try.
                         dir_path = pathlib.Path(module.path).parent
                         if dir_path.is_dir():
-                            # loop again.
+                            # directory exists; loop and try again.
                             search_path = str(dir_path)
                         else:
-                            # the file does not exist on the local computer; just get out.
+                            # the directory doesn't contain the required file on the local computer; just get out.
                             break
                     else:
                         # no more tries left or unknown error.
@@ -365,7 +441,7 @@ class SymbolResolver:
             #       This function returns a pointer to a buffer that may be reused by another function. Therefore, be
             #       sure to copy the data returned to another buffer immediately.
             # The following 2 lines just do that.
-            file_name = ctypes.create_unicode_buffer(line.FileName)
+            file_name = ctypes.create_unicode_buffer(line.FileName)  # noqa
             line.FileName = ctypes.cast(file_name, ctypes.c_wchar_p)
 
             logger.debug(f"File Name: '{line.FileName}'; Line Number: {line.LineNumber}; "
