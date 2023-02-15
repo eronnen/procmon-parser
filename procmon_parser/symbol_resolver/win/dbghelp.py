@@ -107,7 +107,7 @@ class _FunctionDescriptor(object):
     def __init__(self, name, parameter_types=None, return_type=None, aliases=None):
         # type: (str, tuple[_ctypes._SimpleCData] | None, _ctypes._SimpleCData | None, list[str] | None) -> None
         """Class used to describe a Windows API function wrt its ctypes bindings."""
-        self.name = name,
+        self.name = name
         self.parameter_types = parameter_types
         self.return_type = return_type
         self.aliases = aliases
@@ -325,10 +325,7 @@ class DbgHelp:
             AttributeError: A given function was not found.
         """
         try:
-            # HACK (python 3.10 thinks it's a tuple ???)
-            func_name = (function_descriptor.name[0] if isinstance(function_descriptor.name, tuple) else
-                         function_descriptor.name)
-            function_pointer = getattr(self._dbghelp, func_name)
+            function_pointer = getattr(self._dbghelp, function_descriptor.name)
         except AttributeError:
             # We land here if the function can't be found in the given DLL.
             # note: it raises from quite deep inside ctypes if the function can't be resolved, which might be confusing.
@@ -339,7 +336,7 @@ class DbgHelp:
             function_pointer.argtypes = function_descriptor.parameter_types
         if function_descriptor.return_type:
             function_pointer.restype = function_descriptor.return_type
-        self._functions.update({func_name: function_pointer})
+        self._functions.update({function_descriptor.name: function_pointer})
         if function_descriptor.aliases:
             for alias in function_descriptor.aliases:
                 self._functions.update({alias: function_pointer})
