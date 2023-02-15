@@ -5,15 +5,18 @@
 DbgHelp.dll is the main library for resolving symbols.
 """
 import ctypes
-import dataclasses
 import logging
 import pathlib
+import sys
 import enum
-
-import _ctypes  # only used for typing as ctypes doesn't export inner types.
 
 from procmon_parser.symbol_resolver.win.win_types import (
     HANDLE, PCSTR, BOOL, DWORD, PCWSTR, PVOID, PWSTR, DWORD64, ULONG, ULONG64, WCHAR, PDWORD64, PDWORD)
+
+if sys.version_info >= (3, 5, 0):
+    import typing
+    if typing.TYPE_CHECKING:
+        import _ctypes  # only used for typing as ctypes doesn't export inner types.
 
 logger = logging.getLogger(__name__)
 
@@ -98,18 +101,21 @@ PIMAGEHLP_LINEW64 = ctypes.POINTER(IMAGEHLP_LINEW64)
 # Functions descriptors
 #
 
+class _FunctionDescriptor(object):
+    __slots__ = ["name", "parameter_types", "return_type", "aliases"]
 
-@dataclasses.dataclass
-class _FunctionDescriptor:
-    """Class used to describe a Windows API function wrt its ctypes bindings."""
-    name: str
-    parameter_types: tuple[_ctypes._SimpleCData] | None = None
-    return_type: _ctypes._SimpleCData | None = None
-    aliases: list[str] | None = None
+    def __init__(self, name, parameter_types=None, return_type=None, aliases=None):
+        # type: (str, tuple[_ctypes._SimpleCData] | None, _ctypes._SimpleCData | None, list[str] | None) -> None
+        """Class used to describe a Windows API function wrt its ctypes bindings."""
+        self.name = name,
+        self.parameter_types = parameter_types
+        self.return_type = return_type
+        self.aliases = aliases
 
 
 # list of function (descriptors) from DbgHelp.dll
-_functions_descriptors: list[_FunctionDescriptor] = [
+# type: list[_FunctionDescriptor]
+_functions_descriptors = [
     # SymInitializeW
     # https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-syminitializew
     _FunctionDescriptor("SymInitializeW",
@@ -271,7 +277,8 @@ class DbgHelp:
         ```
     """
 
-    def __init__(self, dbghelp_path: pathlib.Path) -> None:
+    def __init__(self, dbghelp_path):
+        # type: (pathlib.Path) -> None
         """Class init.
 
         Args:
@@ -297,7 +304,8 @@ class DbgHelp:
     def __getattr__(self, item: str):
         return self[item]
 
-    def _resolve_functions(self, function_descriptors: list[_FunctionDescriptor]) -> None:
+    def _resolve_functions(self, function_descriptors):
+        # type: (list[_FunctionDescriptor]) -> None
         """[internal] Resolve functions, for the given DLL, from the list of `_FunctionsDescriptor`.
 
         Raises:
@@ -306,7 +314,8 @@ class DbgHelp:
         for function_descriptor in function_descriptors:
             self._register_function(function_descriptor)
 
-    def _register_function(self, function_descriptor: _FunctionDescriptor) -> None:
+    def _register_function(self, function_descriptor) -> None:
+        # type: (_FunctionDescriptor) -> None
         """[internal] Build a function ctypes wrapping from its function descriptor.
 
         Args:
@@ -316,7 +325,10 @@ class DbgHelp:
             AttributeError: A given function was not found.
         """
         try:
-            function_pointer = getattr(self._dbghelp, function_descriptor.name)
+            # HACK (python 3.10 thinks it's a tuple ???)
+            func_name = (function_descriptor.name[0] if isinstance(function_descriptor.name, tuple) else
+                         function_descriptor.name)
+            function_pointer = getattr(self._dbghelp, func_name)
         except AttributeError:
             # We land here if the function can't be found in the given DLL.
             # note: it raises from quite deep inside ctypes if the function can't be resolved, which might be confusing.
@@ -327,7 +339,7 @@ class DbgHelp:
             function_pointer.argtypes = function_descriptor.parameter_types
         if function_descriptor.return_type:
             function_pointer.restype = function_descriptor.return_type
-        self._functions.update({function_descriptor.name: function_pointer})
+        self._functions.update({func_name: function_pointer})
         if function_descriptor.aliases:
             for alias in function_descriptor.aliases:
                 self._functions.update({alias: function_pointer})

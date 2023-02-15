@@ -3,7 +3,6 @@
 """Module used to resolve symbolic information for a given a stack trace.
 """
 import ctypes
-import dataclasses
 import enum
 import logging
 import os
@@ -17,21 +16,13 @@ import procmon_parser
 if sys.platform != "win32":
     raise RuntimeError("Symbol Resolver can only be used on Windows Operating Systems.")
 
-if sys.version_info < (3, 5, 0):
-    raise RuntimeError("Symbol Resolver can only be called from python 3.5 +.")
-
-import pathlib
-import typing
+if sys.version_info >= (3, 5, 0):
+    import typing
+    import pathlib  # TODO: to be converted to py 2.7 equivalent.
 
 from procmon_parser.symbol_resolver.win.dbghelp import (
     DbgHelp, PFINDFILEINPATHCALLBACK, SYMBOL_INFOW, IMAGEHLP_LINEW64, SYMOPT, SSRVOPT)
 from procmon_parser.symbol_resolver.win.win_types import PVOID, HANDLE, DWORD64, DWORD
-
-
-if typing.TYPE_CHECKING:
-    from procmon_parser import ProcmonLogsReader
-    from procmon_parser.logs import Event
-    from procmon_parser.logs import Module
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +36,8 @@ class FrameType(enum.Enum):
     USER = enum.auto()
 
     @staticmethod
-    def from_address(address: int, max_user_address: int) -> "FrameType":
+    def from_address(address, max_user_address):
+        # type: (int, int) -> "FrameType"
         """Get the type of frame given an address and the maximum possible user address.
 
         Args:
@@ -58,38 +50,51 @@ class FrameType(enum.Enum):
         return FrameType.KERNEL if address > max_user_address else FrameType.USER
 
 
-@dataclasses.dataclass
-class StackTraceFrameInformation:
-    """Contain various symbolic information about a frame in a stacktrace.
-    """
-    #: Type of the frame, either Kernel or User.
-    frame_type: FrameType
-    #: The frame number (its position in the stack trace).
-    frame_number: int
-    #: Address at which the frame happens.
-    address: int
-    #: The module inside which the frame happens.
-    module: procmon_parser.Module | None = None
-    #: Symbolic information about the frame.
-    symbol_info: SYMBOL_INFOW | None = None
-    #: The displacement in regard to the symbol.
-    #: For example if the symbol name is 'foo' and the displacement is 0x10, then the frame happened at 'foo + 0x10'.
-    displacement: int | None = None
-    #: Line information  in regard to the symbol (available only if symbolic source information is present).
-    line_info: IMAGEHLP_LINEW64 | None = None
-    #: Displacement from the source code line (that is, the column in the source code line).
-    line_displacement: int | None = None
-    #: The source code full file path at which the frame happened.
-    source_file_path: pathlib.Path | None = None
+class StackTraceFrameInformation(object):
+    def __init__(self,
+                 frame_type,  # type: FrameType
+                 frame_number,  # type: int
+                 address,  # type: int
+                 module=None,  # type: procmon_parser.Module | None
+                 symbol_info=None,  # type: SYMBOL_INFOW | None
+                 displacement=None,  # type: int | None
+                 line_info=None,  # type: IMAGEHLP_LINEW64 | None
+                 line_displacement=None,  # type: int | None
+                 source_file_path=None  # type: str | None
+                 ):
+        # type: (...) -> None
+        """Contain various symbolic information about a frame in a stacktrace.
+        """
+        # Type of the frame, either Kernel or User.
+        self.frame_type = frame_type
+        # The frame number (its position in the stack trace).
+        self.frame_number = frame_number
+        # Address of the symbol, at which the frame happens.
+        self.address = address
+        # The module inside which the frame happens.
+        self.module = module
+        # Symbolic information about the frame.
+        self.symbol_info = symbol_info
+        # The displacement in regard to the symbol.
+        # For example if the symbol name is 'foo' and the displacement is 0x10, then the frame happened at 'foo + 0x10'.
+        self.displacement = displacement
+        #  Line information in regard to the symbol (available only if symbolic source information is present).
+        self.line_info = line_info
+        # Displacement from the source code line (that is, the column in the source code line).
+        self.line_displacement = line_displacement
+        # The source code full file path at which the frame happened.
+        self.source_file_path = source_file_path
 
     @property
-    def frame(self) -> str:
+    def frame(self):
+        # type: () -> str
         """Return a string representation of a frame (its `FrameType` and frame number).
         """
         return f"{self.frame_type.name[0]} {self.frame_number}"
 
     @property
-    def location(self) -> str:
+    def location(self):
+        # type: () -> str
         """Return a string representation of the symbolic location at which the frame happens.
         """
         if self.symbol_info is None:
@@ -107,7 +112,8 @@ class StackTraceFrameInformation:
         return f"{sym_str}, {line_str}"
 
     @property
-    def module_name(self) -> str:
+    def module_name(self):
+        # type: () -> str
         """Return a string representation of the frame main module name.
         """
         if self.module is None or not self.module.path:
@@ -116,7 +122,8 @@ class StackTraceFrameInformation:
         return pathlib.Path(self.module.path).name
 
     @property
-    def module_path(self) -> str:
+    def module_path(self):
+        # type: () -> str
         """Return a string representation of the frame main module fully qualified path.
         """
         if self.module is None or not self.module.path:
@@ -124,16 +131,19 @@ class StackTraceFrameInformation:
 
         return self.module.path
 
-    def __repr__(self) -> str:
+    def __repr__(self):
+        # type: () -> str
         return f"{self.frame} {self.module_name} {self.location} {self.address:#x} {self.module_path}"
 
 
-class StackTraceInformation:
+class StackTraceInformation(object):
     """Class used to prettify a whole stack trace so its output if similar to ProcMon's stack trace window tab for an
     event.
     """
+
     @staticmethod
-    def prettify(resolved_stack_trace: list[StackTraceFrameInformation]) -> str:
+    def prettify(resolved_stack_trace):
+        # type: (list[StackTraceFrameInformation]) -> str
         """Prettify a list of `StackTraceFrameInformation` so its output is similar to the one given by ProcMon.
 
         Args:
@@ -158,13 +168,15 @@ class StackTraceInformation:
         return '\n'.join(output)
 
 
-class SymbolResolver:
+class SymbolResolver(object):
     """Main workhorse class for resolving symbolic information from a stack trace.
     """
+
     def __init__(self,
-                 procmon_logs_reader: "ProcmonLogsReader",
-                 dll_dir_path: str | pathlib.Path | None = None,
-                 skip_symsrv: bool = False) -> None:
+                 procmon_logs_reader,
+                 dll_dir_path=None,
+                 skip_symsrv=False):
+        # type: (procmon_parser.ProcmonLogsReader, str | pathlib.Path | None, bool) -> None
         """Class Initialisation.
 
         Args:
@@ -241,7 +253,8 @@ class SymbolResolver:
                 logger.debug(f"Process w/ Name = 'System': {sys_name!r}")
             raise RuntimeError("Could not get system modules.")
 
-    def find_module(self, event, address: int) -> procmon_parser.Module | None:
+    def find_module(self, event, address):
+        # type: (procmon_parser.Event, int) -> procmon_parser.Module | None
         """Try to find the corresponding module given an address from an event stack trace.
 
         Args:
@@ -251,11 +264,14 @@ class SymbolResolver:
         Returns:
             If the address lies inside a known module, the module is returned, otherwise the function returns None.
         """
-        def is_kernel(addr: int) -> bool:
+
+        def is_kernel(addr):
+            # type: (int) -> bool
             """[Internal] Return whether an address is kernel (True) or not (user mode address: False)."""
             return addr > self._max_user_address
 
-        def find_module_from_list(addr: int, modules: list['Module']) -> typing.Optional['Module']:
+        def find_module_from_list(addr, modules):
+            # type: (int, list[procmon_parser.Module]) -> procmon_parser.Module | None
             """[Internal] Return an instance of a Module given an address (if the address lies inside the module).
             """
             for m in modules:
@@ -272,7 +288,8 @@ class SymbolResolver:
         module = find_module_from_list(address, module_source)
         return module  # may be None.
 
-    def resolve_stack_trace(self, event: "Event") -> typing.Iterator[StackTraceFrameInformation]:
+    def resolve_stack_trace(self, event):
+        # type: (procmon_parser.Event) -> typing.Iterator[StackTraceFrameInformation]
         """Resolve the stack trace of an event to include symbolic information.
 
         Args:
@@ -455,7 +472,7 @@ class SymbolResolver:
             # We just check that we already have fully qualified path. If it is, then we bail out, otherwise we call
             #    SymGetSourceFileW.
             fully_qualified_source_path = None
-            if pathlib.Path(line.FileName).is_absolute():
+            if pathlib.Path(line.FileName).is_absolute():  # noqa
                 # we have a fully qualified source file path.
                 logger.debug(f"source file path [from line.Filename]: {line.FileName}")
                 fully_qualified_source_path = line.FileName
@@ -488,12 +505,14 @@ class SymbolResolver:
         self._dbghelp.SymCleanup(pid)
 
 
-class DbgHelpUtils:
+class DbgHelpUtils(object):
     """Utility functions to automatically find DbgHelp.dll and Symsrv.dll if Debugging Tools For Windows or Windbg
     preview are installed on the current system.
     """
+
     @staticmethod
-    def find_debugging_tools() -> pathlib.Path | None:
+    def find_debugging_tools():
+        # type: () -> pathlib.Path | None
         """Find the path of the directory containing DbgHelp.dll and Symsrv.dll from the Debugging Tools For Windows
         (installed from the Windows SDK).
 
@@ -559,7 +578,8 @@ class DbgHelpUtils:
         return DbgHelpUtils._arch_dir(debugger_path, lookup)
 
     @staticmethod
-    def find_windbg_preview() -> pathlib.Path | None:
+    def find_windbg_preview():
+        # type: () -> pathlib.Path | None
         """Find the directory path of the DbgHelp.dll and Symsrv.dll from the Windbg preview installation (installed
         from the Windows Store).
 
@@ -601,7 +621,8 @@ class DbgHelpUtils:
         return DbgHelpUtils._arch_dir(windbg_location, lookup)
 
     @staticmethod
-    def _arch_dir(debugger_dir: pathlib.Path, arch_lookup: dict[str, str]) -> pathlib.Path | None:
+    def _arch_dir(debugger_dir, arch_lookup):
+        # type: (pathlib.Path, dict[str, str]) -> pathlib.Path | None
         """[internal] Get the path to the right DLLs (depending on the architecture used by the python interpreter).
 
         Args:
