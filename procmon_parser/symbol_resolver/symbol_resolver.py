@@ -134,7 +134,7 @@ class StackTraceInformation:
     """
     @staticmethod
     def prettify(resolved_stack_trace: list[StackTraceFrameInformation]) -> str:
-        """Prettify a list of `StackTraceFrameInformation` so it's output is similar to the one given by ProcMon.
+        """Prettify a list of `StackTraceFrameInformation` so its output is similar to the one given by ProcMon.
 
         Args:
             resolved_stack_trace: A list of stack trace frame information.
@@ -179,8 +179,11 @@ class SymbolResolver:
             If neither can be found, the function raises.
 
         Raises:
-            ValueError: The provided DLL path is not a valid directory, does not contain the required DLL(s) or the
-            automatic finder could not find the required DLL.
+            ValueError:
+                The provided DLL path is not a valid directory, does not contain the required DLL(s) or the automatic
+                finder could not find the required DLL.
+            RuntimeError:
+                The initialisation couldn't get the system modules.
         """
         # Check if we can find the needed DLLs if not path has been provided.
         # Both DLLs are needed to resolve symbolic information.
@@ -224,9 +227,19 @@ class SymbolResolver:
         for process in procmon_logs_reader.processes():
             # Can't remember if System pid has always been 4.
             # Just check its name (doesn't end with .exe) and company is MS. That should be foolproof enough.
-            if process.process_name in ["System"] and process.company.lower().startswith("microsoft"):
+            if process.process_name in ["System"] and process.user.lower() == "nt authority\\system":
                 self.system_modules = process.modules
                 break
+
+        # Defensive check.
+        if not self.system_modules:
+            sys_pid = next((p for p in procmon_logs_reader.processes() if p.pid == 4), None)
+            sys_name = next((p for p in procmon_logs_reader.processes() if p.process_name.lower() == "system"), None)
+            if sys_pid is not None:
+                logger.debug(f"Process w/ PID = 4: {sys_pid!r}")
+            if sys_name is not None:
+                logger.debug(f"Process w/ Name = 'System': {sys_name!r}")
+            raise RuntimeError("Could not get system modules.")
 
     def find_module(self, event, address: int) -> procmon_parser.Module | None:
         """Try to find the corresponding module given an address from an event stack trace.
