@@ -450,28 +450,39 @@ class SymbolResolver:
             logger.debug(f"File Name: '{line.FileName}'; Line Number: {line.LineNumber}; "
                          f"Line Displacement (col): {line_displacement.value}")
 
-            source_file_path_size = DWORD(260)
-            source_file_path = ctypes.create_unicode_buffer(source_file_path_size.value)
-            ret_val = self._dbghelp.SymGetSourceFileW(
-                pid,  # hProcess
-                module.base_address,  # Base
-                None,  # Params (never used)
-                line.FileName,  # FileSpec (name of source file) [PCWSTR]
-                source_file_path,  # [out] FilePath: fully qualified path of source file
-                source_file_path_size  # FilePath size (num chars)
-            )
-            if ret_val == 0:
-                last_err = ctypes.get_last_error()
-                logger.debug(f"SymGetSourceFileW: ({last_err:#08x}) {ctypes.FormatError(last_err)}")
-                logger.debug(f"--> FileName: {line.FileName}")
-                yield StackTraceFrameInformation(frame_type, frame_number, address, module, symbol_info,
-                                                 displacement.value, line, line_displacement.value)
-                continue
-
-            logger.debug(f"source file path: {source_file_path.value}")
+            # It's possible that the returned line.Filename is already a fully qualified path, in which case there's no
+            #    need to call SymGetSourceFileW, as the latter would be only used to retrieve the fully qualified path.
+            # We just check that we already have fully qualified path. If it is, then we bail out, otherwise we call
+            #    SymGetSourceFileW.
+            fully_qualified_source_path = None
+            if pathlib.Path(line.FileName).is_absolute():
+                # we have a fully qualified source file path.
+                logger.debug(f"source file path [from line.Filename]: {line.FileName}")
+                fully_qualified_source_path = line.FileName
+            else:
+                # we don't have a fully qualified source file path.
+                source_file_path_size = DWORD(260)
+                source_file_path = ctypes.create_unicode_buffer(source_file_path_size.value)
+                ret_val = self._dbghelp.SymGetSourceFileW(
+                    pid,  # hProcess
+                    module.base_address,  # Base
+                    None,  # Params (never used)
+                    line.FileName,  # FileSpec (name of source file) [PCWSTR]
+                    source_file_path,  # [out] FilePath: fully qualified path of source file
+                    source_file_path_size  # FilePath size (num chars)
+                )
+                if ret_val == 0:
+                    last_err = ctypes.get_last_error()
+                    logger.debug(f"SymGetSourceFileW: ({last_err:#08x}) {ctypes.FormatError(last_err)}")
+                    logger.debug(f"SymGetSourceFileW failed: using '{line.FileName}' as fallback.")
+                    # use line.FileName as fallback
+                    fully_qualified_source_path = line.FileName
+                else:
+                    logger.debug(f"source file path [from SymGetSourceFileW]: {source_file_path.value}")
+                    fully_qualified_source_path = source_file_path.value
 
             yield StackTraceFrameInformation(frame_type, frame_number, address, module, symbol_info, displacement.value,
-                                             line, line_displacement.value, source_file_path.value)
+                                             line, line_displacement.value, fully_qualified_source_path)
 
         # dbghelp symbol cleanup
         self._dbghelp.SymCleanup(pid)
