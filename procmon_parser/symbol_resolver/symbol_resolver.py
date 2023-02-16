@@ -21,8 +21,9 @@ if sys.version_info >= (3, 5, 0):
     import pathlib  # TODO: to be converted to py 2.7 equivalent.
 
 from procmon_parser.symbol_resolver.win.dbghelp import (
-    DbgHelp, PFINDFILEINPATHCALLBACK, SYMBOL_INFOW, IMAGEHLP_LINEW64, SYMOPT, SSRVOPT)
-from procmon_parser.symbol_resolver.win.win_types import PVOID, HANDLE, DWORD64, DWORD
+    DbgHelp, PFINDFILEINPATHCALLBACK, SYMBOL_INFOW, IMAGEHLP_LINEW64, SYMOPT, SSRVOPT, PSYMBOL_REGISTERED_CALLBACK64,
+    CBA, PIMAGEHLP_CBA_EVENTW)
+from procmon_parser.symbol_resolver.win.win_types import PVOID, HANDLE, DWORD64, DWORD, ULONG, ULONG64, BOOL
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +177,9 @@ class SymbolResolver(object):
                  procmon_logs_reader,
                  dll_dir_path=None,
                  skip_symsrv=False,
-                 symbol_path=None):
-        # type: (procmon_parser.ProcmonLogsReader, str | pathlib.Path | None, bool, str) -> None
+                 symbol_path=None,
+                 debug_callback=None):
+        # type: (procmon_parser.ProcmonLogsReader, str | pathlib.Path | None, bool, str, typing.Callable) -> None
         """Class Initialisation.
 
         Args:
@@ -188,6 +190,8 @@ class SymbolResolver(object):
             symbol_path: Replace the `_NT_SYMBOL_PATH` environment variable if it exists, or prevent using %TEMP% as
                 the download location of the symbol files. This must be a string compatible with the `_NT_SYMBOL_PATH`
                 syntax.
+            debug_mode: If set to True, set the dbghelp functionalities in debug mode (can be used to understand and
+                debug problems with symbol downloading and resolution).
 
         Notes:
             If `dll_dir_path` is None, then the code does its best to find matching installations of the Debugging Tools
@@ -234,10 +238,17 @@ class SymbolResolver(object):
 
         # DbgHelp wrapper instance initialisation and symbolic option setting.
         self._dbghelp = DbgHelp(self.dll_dir_path / "dbghelp.dll")
-        self._dbghelp.SymSetOptions(
+
+        self._debug_callback = debug_callback
+        dbghelp_options = [
             SYMOPT.SYMOPT_CASE_INSENSITIVE | SYMOPT.SYMOPT_UNDNAME | SYMOPT.SYMOPT_DEFERRED_LOADS |
             SYMOPT.SYMOPT_LOAD_LINES | SYMOPT.SYMOPT_OMAP_FIND_NEAREST | SYMOPT.SYMOPT_FAIL_CRITICAL_ERRORS |
-            SYMOPT.SYMOPT_INCLUDE_32BIT_MODULES | SYMOPT.SYMOPT_AUTO_PUBLICS)  # 0x12237.
+            SYMOPT.SYMOPT_INCLUDE_32BIT_MODULES | SYMOPT.SYMOPT_AUTO_PUBLICS]
+
+        if self._debug_callback is not None:
+            dbghelp_options.append(SYMOPT.SYMOPT_DEBUG)
+
+        self._dbghelp.SymSetOptions(sum(dbghelp_options))  # 0x12237 (if not SYMOPT_DEBUG).
 
         # maximum user-address, used to discern between user and kernel modules (which don't change between processes).
         self._max_user_address: int = procmon_logs_reader.maximum_application_address
@@ -331,6 +342,11 @@ class SymbolResolver(object):
         # Initialize dbghelp symbolic information.
         pid = event.process.pid
         self._dbghelp.SymInitialize(pid, None, False)
+
+        # set up callback if we are in debug mode
+        if self._debug_callback:
+            callback = PSYMBOL_REGISTERED_CALLBACK64(self._symbol_registered_callback)
+            self._dbghelp.SymRegisterCallbackW64(pid, callback, PVOID(pid))
 
         logger.debug(f"# Stack Trace frames: {len(event.stacktrace)}")
         logger.debug(f"PID: {pid:#08x}")
@@ -510,6 +526,22 @@ class SymbolResolver(object):
 
         # dbghelp symbol cleanup
         self._dbghelp.SymCleanup(pid)
+
+    def _symbol_registered_callback(self, handle, action_code, callback_data, user_context):
+        # type: (HANDLE, ULONG, ULONG64, ULONG64) -> BOOL
+        param_callback_data = callback_data
+        try:
+            param_action_code = CBA(action_code)
+            if param_action_code == CBA.CBA_DEBUG_INFO:
+                param_callback_data = ctypes.cast(callback_data, ctypes.c_wchar_p).value
+            elif param_action_code == CBA.CBA_EVENT:
+                param_callback_data = ctypes.cast(callback_data, PIMAGEHLP_CBA_EVENTW).contents
+        except ValueError:
+            # can't convert from int to CBA. this happens for internal messages that surfaces.
+            param_action_code = action_code
+
+        ret = self._debug_callback(handle, param_action_code, param_callback_data, user_context)
+        return ret
 
 
 class DbgHelpUtils(object):

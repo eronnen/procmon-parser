@@ -11,14 +11,18 @@ import sys
 import enum
 
 from procmon_parser.symbol_resolver.win.win_types import (
-    HANDLE, PCSTR, BOOL, DWORD, PCWSTR, PVOID, PWSTR, DWORD64, ULONG, ULONG64, WCHAR, PDWORD64, PDWORD)
+    HANDLE, PCSTR, BOOL, DWORD, PCWSTR, PVOID, PWSTR, DWORD64, ULONG, ULONG64, WCHAR, PDWORD64, PDWORD, BOOLEAN)
 
 if sys.version_info >= (3, 5, 0):
     import typing
+
     if typing.TYPE_CHECKING:
         import _ctypes  # only used for typing as ctypes doesn't export inner types.
 
 logger = logging.getLogger(__name__)
+
+#
+MAX_PATH = 260
 
 #
 # Callback Functions needed by some DbgHelp APIs.
@@ -26,7 +30,12 @@ logger = logging.getLogger(__name__)
 
 # PFINDFILEINPATHCALLBACK; used with the SymFindFileInPath function.
 # https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nc-dbghelp-pfindfileinpathcallback
-PFINDFILEINPATHCALLBACK = ctypes.WINFUNCTYPE(BOOL, PCSTR, PVOID, use_last_error=False)
+PFINDFILEINPATHCALLBACK = ctypes.WINFUNCTYPE(BOOL, PCSTR, PVOID)
+
+# PSYMBOL_REGISTERED_CALLBACK64 ; passed to SymRegisterCallback64
+# Used if SymSetOptions is passed the 'SYMOPT_DEBUG' flag.
+# https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nc-dbghelp-psymbol_registered_callback64
+PSYMBOL_REGISTERED_CALLBACK64 = ctypes.WINFUNCTYPE(BOOL, HANDLE, ULONG, ULONG64, ULONG64)
 
 
 #
@@ -37,7 +46,8 @@ PFINDFILEINPATHCALLBACK = ctypes.WINFUNCTYPE(BOOL, PCSTR, PVOID, use_last_error=
 class MODLOAD_DATA(ctypes.Structure):  # noqa
     """Contains module data. Used by SymLoadModuleExW.
 
-    See: https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-modload_data
+    See Also:
+        https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-modload_data
     """
     _fields_ = (
         ("ssize", DWORD),
@@ -54,7 +64,8 @@ PMODLOAD_DATA = ctypes.POINTER(MODLOAD_DATA)
 class SYMBOL_INFOW(ctypes.Structure):  # noqa
     """Contains symbol information. Used by SymFromAddrW.
 
-    See: https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-symbol_infow
+    See Also:
+        https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-symbol_infow
     """
     BUFFER_NUM_ELEMENTS = 468
 
@@ -83,7 +94,8 @@ PSYMBOL_INFOW = ctypes.POINTER(SYMBOL_INFOW)
 class IMAGEHLP_LINEW64(ctypes.Structure):  # noqa
     """Represents a source file line. Used by SymGetLineFromAddrW64.
 
-    See: https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-imagehlp_linew64
+    See Also:
+        https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-imagehlp_linew64
     """
     _fields_ = (
         ("SizeOfStruct", DWORD),
@@ -97,9 +109,60 @@ class IMAGEHLP_LINEW64(ctypes.Structure):  # noqa
 PIMAGEHLP_LINEW64 = ctypes.POINTER(IMAGEHLP_LINEW64)
 
 
+class IMAGEHLP_DEFERRED_SYMBOL_LOADW64(ctypes.Structure):  # noqa
+    """Contains information about a deferred symbol load.
+
+    See Also:
+        https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-imagehlp_deferred_symbol_loadw64
+    """
+    _fields_ = (
+        ("SizeOfStruct", DWORD),
+        ("BaseOfImage", DWORD64),
+        ("Checksum", DWORD),
+        ("TimeDateStamp", DWORD),
+        ("FileName", WCHAR * (MAX_PATH + 1)),
+        ("Reparse", BOOLEAN),
+        ("hFile", HANDLE),
+        ("Flags", DWORD)
+    )
+
+
+PIMAGEHLP_DEFERRED_SYMBOL_LOADW64 = ctypes.POINTER(IMAGEHLP_DEFERRED_SYMBOL_LOADW64)
+
+
+class IMAGEHLP_DUPLICATE_SYMBOL64(ctypes.Structure):  # noqa
+    """Contains duplicate symbol information.
+
+    See Also:
+        https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-imagehlp_duplicate_symbol64
+
+    """
+    _fields_ = (
+        ("SizeOfStruct", DWORD),
+        ("NumberOfDups", DWORD),
+        ("Symbol", PVOID),  # should be POINTER(IMAGEHLP_SYMBOLW64)
+        ("SelectedSymbol", DWORD)
+    )
+
+
+PIMAGEHLP_DUPLICATE_SYMBOL64 = ctypes.POINTER(IMAGEHLP_DUPLICATE_SYMBOL64)
+
+
+class IMAGEHLP_CBA_EVENTW(ctypes.Structure):  # noqa
+    _fields_ = (
+        ("severity", DWORD),
+        ("code", DWORD),
+        ("desc", PCWSTR),
+        ("object", PVOID)
+    )
+
+
+PIMAGEHLP_CBA_EVENTW = ctypes.POINTER(IMAGEHLP_CBA_EVENTW)
+
 #
 # Functions descriptors
 #
+
 
 class _FunctionDescriptor(object):
     __slots__ = ["name", "parameter_types", "return_type", "aliases"]
@@ -177,6 +240,12 @@ _functions_descriptors = [
                         BOOL,
                         ["SymGetSourceFile"]
                         ),
+
+    # SymRegisterCallback
+    # https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symregistercallback
+    _FunctionDescriptor("SymRegisterCallbackW64",
+                        (HANDLE, PSYMBOL_REGISTERED_CALLBACK64, PVOID),
+                        BOOL),
 ]
 
 
@@ -264,6 +333,30 @@ class SSRVOPT(enum.IntFlag):
     SSRVOPT_ENABLE_COMM_MSG = 0x10000000
 
 
+class CBA(enum.IntEnum):
+    """Values passed to various callbacks used by dbghelp.
+
+    Only one value can be used at a time.
+    """
+    CBA_DEFERRED_SYMBOL_LOAD_START = 0x00000001
+    CBA_DEFERRED_SYMBOL_LOAD_COMPLETE = 0x00000002
+    CBA_DEFERRED_SYMBOL_LOAD_FAILURE = 0x00000003
+    CBA_SYMBOLS_UNLOADED = 0x00000004
+    CBA_DUPLICATE_SYMBOL = 0x00000005
+    CBA_READ_MEMORY = 0x00000006
+    CBA_DEFERRED_SYMBOL_LOAD_CANCEL = 0x00000007
+    CBA_SET_OPTIONS = 0x00000008
+    CBA_EVENT = 0x00000010
+    CBA_DEFERRED_SYMBOL_LOAD_PARTIAL = 0x00000020
+    CBA_DEBUG_INFO = 0x10000000
+    CBA_SRCSRV_INFO = 0x20000000
+    CBA_SRCSRV_EVENT = 0x40000000
+    CBA_UPDATE_STATUS_BAR = 0x50000000
+    CBA_ENGINE_PRESENT = 0x60000000
+    CBA_CHECK_ENGOPT_DISALLOW_NETWORK_PATHS = 0x70000000
+    CBA_CHECK_ARM_MACHINE_THUMB_TYPE_OVERRIDE = 0x80000000
+
+
 class DbgHelp:
     """Main wrapper around DbgHelp.dll library functions.
 
@@ -314,7 +407,7 @@ class DbgHelp:
         for function_descriptor in function_descriptors:
             self._register_function(function_descriptor)
 
-    def _register_function(self, function_descriptor) -> None:
+    def _register_function(self, function_descriptor):
         # type: (_FunctionDescriptor) -> None
         """[internal] Build a function ctypes wrapping from its function descriptor.
 

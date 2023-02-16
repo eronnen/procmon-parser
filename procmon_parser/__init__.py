@@ -15,9 +15,9 @@ __all__ = [
 
 if sys.platform == "win32" and sys.version_info >= (3, 5, 0):
     from procmon_parser.symbol_resolver.symbol_resolver import (
-        SymbolResolver, StackTraceFrameInformation, StackTraceInformation)
+        SymbolResolver, StackTraceFrameInformation, StackTraceInformation, CBA)
 
-    __all__.extend(['SymbolResolver', 'StackTraceFrameInformation', 'StackTraceInformation'])
+    __all__.extend(['SymbolResolver', 'StackTraceFrameInformation', 'StackTraceInformation', 'CBA'])
 
 
 class ProcmonLogsReader(object):

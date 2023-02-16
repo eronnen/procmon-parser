@@ -4,6 +4,7 @@
 """
 import ctypes
 
+BYTE = BOOLEAN = ctypes.c_uint8
 HANDLE = ctypes.c_void_p
 BOOL = ctypes.c_long
 PCSTR = PCWSTR = PSTR = PWSTR = LPWSTR = ctypes.c_wchar_p

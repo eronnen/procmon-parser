@@ -241,3 +241,43 @@ def main():
 if __name__ == "__main__":
     sys.exit(main())
 ```
+
+## Debugging Symbol Resolution Problem
+
+If symbol resolution is not working as expected, you can pass a callback function - using the `debug_callback` named 
+parameter - to the `SymbolResolver` constructor, as follows:
+
+```python
+#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+import pathlib
+import sys
+
+from procmon_parser import ProcmonLogsReader, SymbolResolver, CBA
+
+def symbol_debug_callback(handle: int, action_code: CBA | int, callback_data: str, user_context: int):
+    if action_code == CBA.CBA_DEBUG_INFO:
+        print(f"[DEBUG MESSAGE DBGHELP: CBA_DEBUG_INFO] {callback_data}")
+        return 1
+    return 0
+
+def main():
+    log_file = pathlib.Path(r"c:\temp\Logfile.PML")
+
+    with log_file.open("rb") as f:
+        procmon_reader = ProcmonLogsReader(f)
+        symbol_resolver = SymbolResolver(procmon_reader, debug_callback=symbol_debug_callback)
+        # ...
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+The callback function mimics the [PSYMBOL_REGISTERED_CALLBACK64 ](https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nc-dbghelp-psymbol_registered_callback64)
+Windows' API callback function. As of now only the `CBA.CBA_DEBUG_INFO` action code is handled internally.
+
+To indicate success handling the `CBA` code, the function **must** return 1. To indicate failure handling the code, 
+return 0. If your code does not handle a particular code, you should also return 0. (Returning 1 in this case may have 
+unintended consequences.)
+
+This will print a lot of information that is helpful debugging symbol retrieval problems.
