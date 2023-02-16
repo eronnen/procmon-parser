@@ -175,8 +175,9 @@ class SymbolResolver(object):
     def __init__(self,
                  procmon_logs_reader,
                  dll_dir_path=None,
-                 skip_symsrv=False):
-        # type: (procmon_parser.ProcmonLogsReader, str | pathlib.Path | None, bool) -> None
+                 skip_symsrv=False,
+                 symbol_path=None):
+        # type: (procmon_parser.ProcmonLogsReader, str | pathlib.Path | None, bool, str) -> None
         """Class Initialisation.
 
         Args:
@@ -184,6 +185,9 @@ class SymbolResolver(object):
             dll_dir_path: Path to a directory containing at least `dbghelp.dll`, and optionally `symsrv.dll`.
             skip_symsrv: Set to True if symbols are available locally on the machine and `_NT_SYMBOL_PATH` environment
                 variable is correctly set. This skips the check for `symsrv.dll` presence altogether.
+            symbol_path: Replace the `_NT_SYMBOL_PATH` environment variable if it exists, or prevent using %TEMP% as
+                the download location of the symbol files. This must be a string compatible with the `_NT_SYMBOL_PATH`
+                syntax.
 
         Notes:
             If `dll_dir_path` is None, then the code does its best to find matching installations of the Debugging Tools
@@ -219,10 +223,13 @@ class SymbolResolver(object):
         self.dll_dir_path = dll_dir_path
 
         # _NT_SYMBOL_PATH is needed to store symbols locally. If it's not set, we need to set it.
-        symbol_path = os.environ.get("_NT_SYMBOL_PATH", None)
-        if symbol_path is None:
-            # resolve TEMP folder and set it at the symbol path.
-            os.environ["_NT_SYMBOL_PATH"] = f"srv*{os.environ['TEMP']}*https://msdl.microsoft.com/download/symbols"
+        nt_symbol_path = os.environ.get("_NT_SYMBOL_PATH", None)
+        if nt_symbol_path is None:
+            if symbol_path is None:
+                # resolve TEMP folder and set it at the symbol path.
+                symbol_path = f"srv*{os.environ['TEMP']}*https://msdl.microsoft.com/download/symbols"
+            # set symbol path
+            os.environ["_NT_SYMBOL_PATH"] = symbol_path
         logger.debug(f"NT_SYMBOL_PATH: {os.environ['_NT_SYMBOL_PATH']}")
 
         # DbgHelp wrapper instance initialisation and symbolic option setting.
