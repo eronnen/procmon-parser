@@ -91,7 +91,8 @@ class StackTraceFrameInformation(object):
         # type: () -> str
         """Return a string representation of a frame (its `FrameType` and frame number).
         """
-        return f"{self.frame_type.name[0]} {self.frame_number}"
+        return "{frame_type.name[0]} {frame_number}".format(
+            frame_type=self.frame_type, frame_number=self.frame_number)
 
     @property
     def location(self):
@@ -99,18 +100,21 @@ class StackTraceFrameInformation(object):
         """Return a string representation of the symbolic location at which the frame happens.
         """
         if self.symbol_info is None:
-            return f"{self.address:#x}"
+            return "{address:#x}".format(address=self.address)
 
         # symbolic information (symbol + asm offset)
-        sym_str = f"{self.symbol_info.Name} + {self.displacement:#x}"
+        sym_str = "{symbol_info.Name} + {displacement:#x}".format(
+            symbol_info=self.symbol_info, displacement=self.displacement)
         if self.line_info is None:
             return sym_str
 
         # line information
         path = self.source_file_path if self.source_file_path else self.line_info.FileName
-        line_str = f"{path} ({self.line_info.LineNumber}; col: {self.line_displacement})"
+        line_str = "{path} ({line_info.LineNumber}; col: {line_displacement})".format(
+            path=path, line_info=self.line_info, line_displacement=self.line_displacement
+        )
 
-        return f"{sym_str}, {line_str}"
+        return "{sym_str}, {line_str}".format(sym_str=sym_str, line_str=line_str)
 
     @property
     def module_name(self):
@@ -134,7 +138,9 @@ class StackTraceFrameInformation(object):
 
     def __repr__(self):
         # type: () -> str
-        return f"{self.frame} {self.module_name} {self.location} {self.address:#x} {self.module_path}"
+        return "{frame} {module_name} {location} {address:#x} {module_path}".format(
+            frame=self.frame, module_name=self.module_name, location=self.location, address=self.address,
+            module_path=self.module_path)
 
 
 class StackTraceInformation(object):
@@ -159,7 +165,7 @@ class StackTraceInformation(object):
         max_frame = max(len(stfi.frame) for stfi in resolved_stack_trace)
         max_module = max(len(stfi.module_name) for stfi in resolved_stack_trace)
         max_location = max(len(stfi.location) for stfi in resolved_stack_trace)
-        max_address = max(len(f"{stfi.address:#x}") for stfi in resolved_stack_trace)
+        max_address = max(len("{stfi.address:#x}".format(stfi=stfi)) for stfi in resolved_stack_trace)
 
         output = list()
         for stfi in resolved_stack_trace:
@@ -174,12 +180,13 @@ class SymbolResolver(object):
     """
 
     def __init__(self,
-                 procmon_logs_reader,
-                 dll_dir_path=None,
-                 skip_symsrv=False,
-                 symbol_path=None,
-                 debug_callback=None):
-        # type: (procmon_parser.ProcmonLogsReader, str | pathlib.Path | None, bool, str, typing.Callable) -> None
+                 procmon_logs_reader,  # type: procmon_parser.ProcmonLogsReader
+                 dll_dir_path=None,  # type: str | pathlib.Path | None
+                 skip_symsrv=False,  # type: bool
+                 symbol_path=None,  # type: str
+                 debug_callback=None  # type: typing.Callable[[int, CBA | int, str, int], int]
+                 ):
+        # type: (...) -> None
         """Class Initialisation.
 
         Args:
@@ -190,7 +197,7 @@ class SymbolResolver(object):
             symbol_path: Replace the `_NT_SYMBOL_PATH` environment variable if it exists, or prevent using %TEMP% as
                 the download location of the symbol files. This must be a string compatible with the `_NT_SYMBOL_PATH`
                 syntax.
-            debug_mode: If set to True, set the dbghelp functionalities in debug mode (can be used to understand and
+            debug_callback: If set to True, set the dbghelp functionalities in debug mode (can be used to understand and
                 debug problems with symbol downloading and resolution).
 
         Notes:
@@ -218,12 +225,14 @@ class SymbolResolver(object):
         else:
             # just check that the given dir contains dbghelp and symsrv.
             if not dll_dir_path.is_dir():
-                raise ValueError(f"The given path '{dll_dir_path}' is not a directory.")
+                raise ValueError("The given path '{dll_dir_path}' is not a directory.".format(
+                    dll_dir_path=dll_dir_path))
             files_to_check = ["dbghelp.dll"]
             if not skip_symsrv:
                 files_to_check.append("symsrv.dll")
             if not all((dll_dir_path / file_name).is_file() for file_name in files_to_check):
-                raise ValueError(f"The given path must be a path to a directory containing: {files_to_check!r}.")
+                raise ValueError("The given path must be a path to a directory containing: {files_to_check!r}.".format(
+                    files_to_check=files_to_check))
         self.dll_dir_path = dll_dir_path
 
         # _NT_SYMBOL_PATH is needed to store symbols locally. If it's not set, we need to set it.
@@ -231,10 +240,12 @@ class SymbolResolver(object):
         if nt_symbol_path is None:
             if symbol_path is None:
                 # resolve TEMP folder and set it at the symbol path.
-                symbol_path = f"srv*{os.environ['TEMP']}*https://msdl.microsoft.com/download/symbols"
+                symbol_path = "srv*{environ_tmp}*https://msdl.microsoft.com/download/symbols".format(
+                    environ_tmp=os.environ['TEMP'])
             # set symbol path
             os.environ["_NT_SYMBOL_PATH"] = symbol_path
-        logger.debug(f"NT_SYMBOL_PATH: {os.environ['_NT_SYMBOL_PATH']}")
+        logger.debug("NT_SYMBOL_PATH: {environ_nt_symbol_path}".format(
+            environ_nt_symbol_path=os.environ['_NT_SYMBOL_PATH']))
 
         # DbgHelp wrapper instance initialisation and symbolic option setting.
         self._dbghelp = DbgHelp(self.dll_dir_path / "dbghelp.dll")
@@ -266,9 +277,9 @@ class SymbolResolver(object):
             sys_pid = next((p for p in procmon_logs_reader.processes() if p.pid == 4), None)
             sys_name = next((p for p in procmon_logs_reader.processes() if p.process_name.lower() == "system"), None)
             if sys_pid is not None:
-                logger.debug(f"Process w/ PID = 4: {sys_pid!r}")
+                logger.debug("Process w/ PID = 4: {sys_pid!r}".format(sys_pid=sys_pid))
             if sys_name is not None:
-                logger.debug(f"Process w/ Name = 'System': {sys_name!r}")
+                logger.debug("Process w/ Name = 'System': {sys_name!r}".format(sys_name=sys_name))
             raise RuntimeError("Could not get system modules.")
 
     def find_module(self, event, address):
@@ -348,22 +359,24 @@ class SymbolResolver(object):
             callback = PSYMBOL_REGISTERED_CALLBACK64(self._symbol_registered_callback)
             self._dbghelp.SymRegisterCallbackW64(pid, callback, PVOID(pid))
 
-        logger.debug(f"# Stack Trace frames: {len(event.stacktrace)}")
-        logger.debug(f"PID: {pid:#08x}")
+        logger.debug("# Stack Trace frames: {len_event_stack_trace}".format(
+            len_event_stack_trace=len(event.stacktrace)))
+        logger.debug("PID: {pid:#08x}".format(pid=pid))
 
         # Resolve each of the addresses in the stack trace, frame by frame.
         for frame_number, address in enumerate(event.stacktrace):
             frame_type = FrameType.from_address(address, self._max_user_address)
-            logger.debug(f"{'-' * 79}\nStack Frame: {frame_number:04} type: {frame_type}")
+            logger.debug("{sep}\nStack Frame: {frame_number:04} type: {frame_type}".format(
+                sep='-' * 79, frame_number=frame_number, frame_type=frame_type))
 
             # find the module that contains the given address. It might not be found.
-            logger.debug(f"Address: {address:#016x}")
+            logger.debug("Address: {address:#016x}".format(address=address))
             module = self.find_module(event, address)
             if not module:
                 yield StackTraceFrameInformation(frame_type, frame_number, address)
                 continue
 
-            logger.debug(f"Address: {address:#016x}  --> Module: {module!r}")
+            logger.debug("Address: {address:#016x}  --> Module: {module!r}".format(address=address, module=module))
 
             # We have the address and the module name. Get the corresponding file from the Symbol store!
             # Once we have the file, we'll be able to query the symbol for the address.
@@ -390,7 +403,8 @@ class SymbolResolver(object):
                 )
                 if not ret_val:
                     last_err = ctypes.get_last_error()
-                    logger.debug(f"SymFindFileInPathW failed at attempt {j} (error: {last_err:#08x}).")
+                    logger.debug("SymFindFileInPathW failed at attempt {j} (error: {last_err:#08x}).".format(
+                        j=j, last_err=last_err))
                     if j == 0 and last_err == 2:  # ERROR_FILE_NOT_FOUND
                         # 1st try and file was not found: check if the directory exists. If it is, give it another try.
                         dir_path = pathlib.Path(module.path).parent
@@ -402,7 +416,8 @@ class SymbolResolver(object):
                             break
                     else:
                         # no more tries left or unknown error.
-                        logger.error(f"SymFindFileInPathW: ({last_err:#08x}) {ctypes.FormatError(last_err)}")
+                        logger.error("SymFindFileInPathW: ({last_err:#08x}) {formatted_last_err}".format(
+                            last_err=last_err, formatted_last_err=ctypes.FormatError(last_err)))
                         break
                 else:
                     # no error.
@@ -412,7 +427,7 @@ class SymbolResolver(object):
                 yield StackTraceFrameInformation(frame_type, frame_number, address, module)
                 continue
 
-            logger.debug(f"Found file: {found_file.value}")
+            logger.debug("Found file: {found_file.value}".format(found_file=found_file))
 
             # We have the file from the symbol store, we now 'load' the symbolic module (it does not load it inside
             # the process address space) to be able to query the symbol right after that.
@@ -431,11 +446,12 @@ class SymbolResolver(object):
                 # module was already loaded. This is not an error in this case.
                 last_err = ctypes.get_last_error()
                 if last_err != 0:  # if it's not 0, then it's really an error.
-                    logger.error(f"SymLoadModuleExW: ({last_err:#08x}) {ctypes.FormatError(last_err)}")
+                    logger.error("SymLoadModuleExW: ({last_err:#08x}) {formatted_last_err}".format(
+                        last_err=last_err, formatted_last_err=ctypes.FormatError(last_err)))
                     yield StackTraceFrameInformation(frame_type, frame_number, address, module)
                     continue
 
-            logger.debug(f"Module Base: {module_base:#x}")
+            logger.debug("Module Base: {module_base:#x}".format(module_base=module_base))
 
             # Now that we have loaded the symbolic module, we query it with the address (lying inside it) to get the
             # name of the symbol and the displacement from the symbol (if any).
@@ -451,11 +467,13 @@ class SymbolResolver(object):
             )
             if ret_val == 0:
                 last_err = ctypes.get_last_error()
-                logger.error(f"SymFromAddr: ({last_err:#08x}) {ctypes.FormatError(last_err)}")
+                logger.error("SymFromAddr: ({last_err:#08x}) {formatted_last_err}".format(
+                    last_err=last_err, formatted_last_err=ctypes.FormatError(last_err)))
                 yield StackTraceFrameInformation(frame_type, frame_number, address, module)
                 continue
 
-            logger.debug(f"Symbol Name: {symbol_info.Name}; Displacement: {displacement.value:#08x}")
+            logger.debug("Symbol Name: {symbol_info.Name}; Displacement: {displacement.value:#08x}".format(
+                symbol_info=symbol_info, displacement=displacement))
 
             # In case we have source information, we need to continue to query the symbol to get source information such
             # as the source file name and the line number. This obviously fails if there are no symbolic source code
@@ -472,8 +490,9 @@ class SymbolResolver(object):
             # The above call fails if there are no source code information. This is the default for Windows binaries.
             if ret_val == 0:
                 last_err = ctypes.get_last_error()
-                logger.debug(f"SymGetLineFromAddrW64 [no source line]: ({last_err:#08x}) "
-                             f"{ctypes.FormatError(last_err)}")
+                logger.debug(
+                    "SymGetLineFromAddrW64 [no source line]: ({last_err:#08x}) {formatted_last_err}".format(
+                        last_err=last_err, formatted_last_err=ctypes.FormatError(last_err)))
                 yield StackTraceFrameInformation(frame_type, frame_number, address, module, symbol_info,
                                                  displacement.value)
                 continue
@@ -487,17 +506,17 @@ class SymbolResolver(object):
             file_name = ctypes.create_unicode_buffer(line.FileName)  # noqa
             line.FileName = ctypes.cast(file_name, ctypes.c_wchar_p)
 
-            logger.debug(f"File Name: '{line.FileName}'; Line Number: {line.LineNumber}; "
-                         f"Line Displacement (col): {line_displacement.value}")
+            logger.debug("File Name: '{line.FileName}'; Line Number: {line.LineNumber}; "
+                         "Line Displacement (col): {line_displacement.value}".format(
+                         line=line, line_displacement=line_displacement))  # noqa
 
             # It's possible that the returned line.Filename is already a fully qualified path, in which case there's no
             #    need to call SymGetSourceFileW, as the latter would be only used to retrieve the fully qualified path.
             # We just check that we already have fully qualified path. If it is, then we bail out, otherwise we call
             #    SymGetSourceFileW.
-            fully_qualified_source_path = None
             if pathlib.Path(line.FileName).is_absolute():  # noqa
                 # we have a fully qualified source file path.
-                logger.debug(f"source file path [from line.Filename]: {line.FileName}")
+                logger.debug("source file path [from line.Filename]: {line.FileName}".format(line=line))
                 fully_qualified_source_path = line.FileName
             else:
                 # we don't have a fully qualified source file path.
@@ -513,12 +532,15 @@ class SymbolResolver(object):
                 )
                 if ret_val == 0:
                     last_err = ctypes.get_last_error()
-                    logger.debug(f"SymGetSourceFileW: ({last_err:#08x}) {ctypes.FormatError(last_err)}")
-                    logger.debug(f"SymGetSourceFileW failed: using '{line.FileName}' as fallback.")
+                    logger.debug("SymGetSourceFileW: ({last_err:#08x}) {formatted_last_err}".format(
+                        last_err=last_err, formatted_last_err=ctypes.FormatError(last_err)))
+                    logger.debug("SymGetSourceFileW failed: using '{line.FileName}' as fallback.".format(
+                        line=line))
                     # use line.FileName as fallback
                     fully_qualified_source_path = line.FileName
                 else:
-                    logger.debug(f"source file path [from SymGetSourceFileW]: {source_file_path.value}")
+                    logger.debug("source file path [from SymGetSourceFileW]: {source_file_path.value}".format(
+                        source_file_path=source_file_path))
                     fully_qualified_source_path = source_file_path.value
 
             yield StackTraceFrameInformation(frame_type, frame_number, address, module, symbol_info, displacement.value,
@@ -597,7 +619,8 @@ class DbgHelpUtils(object):
         debugger_path: pathlib.Path | None = None
         try:
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, sdk_key) as top_key:
-                value, value_type = winreg.QueryValueEx(top_key, f"WindowsDebuggersRoot{max_ver_str}")
+                value, value_type = winreg.QueryValueEx(top_key, "WindowsDebuggersRoot{max_ver_str}".format(
+                    max_ver_str=max_ver_str))
                 if value_type == winreg.REG_SZ:
                     debugger_path = pathlib.Path(value)
         except OSError:
@@ -637,7 +660,8 @@ class DbgHelpUtils(object):
                     key_name = winreg.EnumKey(top_key, i)
                     if "microsoft.windbg" in key_name.lower():
                         # found Windbg Preview. Get its installation location.
-                        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f"{package_key}\\{key_name}") as windbg_key:
+                        install_key = "{package_key}\\{key_name}".format(package_key=package_key, key_name=key_name)
+                        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, install_key) as windbg_key:
                             install_location, key_type = winreg.QueryValueEx(windbg_key, "PackageRootFolder")
                             if key_type == winreg.REG_SZ:
                                 windbg_location = pathlib.Path(install_location)

@@ -149,6 +149,11 @@ PIMAGEHLP_DUPLICATE_SYMBOL64 = ctypes.POINTER(IMAGEHLP_DUPLICATE_SYMBOL64)
 
 
 class IMAGEHLP_CBA_EVENTW(ctypes.Structure):  # noqa
+    """Contains information about a debugging event.
+
+    See Also:
+        https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-imagehlp_cba_eventw
+    """
     _fields_ = (
         ("severity", DWORD),
         ("code", DWORD),
@@ -378,12 +383,12 @@ class DbgHelp:
             dbghelp_path: Path to the dbghelp.dll library.
         """
         if not dbghelp_path.is_file():
-            raise ValueError(f"The given path '{dbghelp_path}' is not a file.")
+            raise ValueError("The given path '{dbghelp_path}' is not a file.".format(dbghelp_path=dbghelp_path))
 
         self._dll_path = dbghelp_path
 
         # Dictionary of functions; key is str (function name), value is ctypes function pointer.
-        self._functions: dict[str: _ctypes.CFuncPtr] = dict()
+        self._functions = dict()  # type: dict[str: _ctypes.CFuncPtr]
 
         # DLL instance
         self._dbghelp = ctypes.WinDLL(str(dbghelp_path), use_last_error=True)
@@ -391,10 +396,12 @@ class DbgHelp:
         # resolve all needed functions.
         self._resolve_functions(_functions_descriptors)
 
-    def __getitem__(self, item: str):
+    def __getitem__(self, item):
+        # type: (str) -> _ctypes.CFuncPtr
         return self._functions[item]
 
-    def __getattr__(self, item: str):
+    def __getattr__(self, item):
+        # type: (str) -> _ctypes.CFuncPtr
         return self[item]
 
     def _resolve_functions(self, function_descriptors):
@@ -423,7 +430,8 @@ class DbgHelp:
             # We land here if the function can't be found in the given DLL.
             # note: it raises from quite deep inside ctypes if the function can't be resolved, which might be confusing.
             # Log it now and re-raise.
-            logger.error(f"The function {function_descriptor.name} was not found in the DLL: '{self._dll_path!r}'.")
+            logger.error("The function {function_descriptor.name} was not found in the DLL: "
+                         "'{dll_path!r}'.".format(function_descriptor=function_descriptor, dll_path=self.dll_path))
             raise
         if function_descriptor.parameter_types:
             function_pointer.argtypes = function_descriptor.parameter_types
