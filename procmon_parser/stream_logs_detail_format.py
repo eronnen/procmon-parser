@@ -8,7 +8,8 @@ from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperatio
     FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
     get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
     FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name, FileInformationClass, \
-    get_filesysyem_notify_change_flags, FilesystemSetInformationOperation
+    get_filesysyem_notify_change_flags, FilesystemSetInformationOperation, get_filesystem_createfilemapping_synctype, \
+    PAGE_PROTECTION
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
     read_utf16_multisz, read_u64, read_filetime, read_s64
 
@@ -480,6 +481,23 @@ def get_filesystem_create_file_details(io, metadata, event, details_io, extra_de
         event.category = "Write"
 
 
+def get_filesystem_create_file_mapping(io, metadata, event, details_io, extra_detail_io):
+    """Get detailed information about a FileSystem CreateFileMapping event.
+
+    Notes:
+         The CreateFileMapping event is basically the results of the IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION IRP, but
+         without the FS_FILTER_SECTION_SYNC_OUTPUT output information. Only SyncType and PageProtection are available.
+         See: https://learn.microsoft.com/en-us/windows-hardware/drivers/ifs/flt-parameters-for-irp-mj-acquire-for-section-synchronization
+    """
+    # Only two fields are read from the details (there's also the detail string which is already read in the caller, see
+    # get_filesystem_event_details() function). Besides those, all other fields seem to be completely ignored.
+    details_io.seek(0x0C, 1)  # skip 0xC bytes from the beginning of details.
+    sync_type = read_u32(details_io)  # note: asm uses 'movsxd', so it's signed with sign extension.
+    page_protection = read_u32(details_io)
+    event.details["SyncType"] = get_filesystem_createfilemapping_synctype(sync_type)
+    event.details["PageProtection"] = str(PAGE_PROTECTION(page_protection))
+
+
 def get_filesystem_read_write_file_details(io, metadata, event, details_io, extra_detail_io):
     event.category = "Read" if event.operation == "ReadFile" else "Write"
     details_io.seek(0x4, 1)
@@ -583,6 +601,7 @@ FilesystemSubOperationHandler = {
     FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
     FilesystemSetInformationOperation.SetDispositionInformationFile.name:
         get_filesystem_setdispositioninformation_details,
+    FilesystemOperation.CreateFileMapping.name: get_filesystem_create_file_mapping,
 }
 
 

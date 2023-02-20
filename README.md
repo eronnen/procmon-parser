@@ -139,7 +139,7 @@ The PML format is very complex so there are some features (unchecked in the list
     - [ ] Filesystem Operations
         - [ ] VolumeDismount
         - [ ] VolumeMount
-        - [ ] CreateFileMapping
+        - [x] CreateFileMapping
         - [x] CreateFile
         - [ ] CreatePipe
         - [x] ReadFile
