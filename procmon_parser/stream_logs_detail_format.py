@@ -495,7 +495,9 @@ def get_filesystem_create_file_mapping(io, metadata, event, details_io, extra_de
     sync_type = read_u32(details_io)  # note: asm uses 'movsxd', so it's signed with sign extension.
     page_protection = read_u32(details_io)
     event.details["SyncType"] = get_filesystem_createfilemapping_synctype(sync_type)
-    event.details["PageProtection"] = str(PAGE_PROTECTION(page_protection))
+    page_protection_name = PAGE_PROTECTION(page_protection).name
+    if page_protection_name:
+        event.details["PageProtection"] = page_protection_name
 
 
 def get_filesystem_read_write_file_details(io, metadata, event, details_io, extra_detail_io):

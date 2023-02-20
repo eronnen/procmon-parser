@@ -41,6 +41,7 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "QueryRemoteProtocolInformation",
         "QueryIdInformation",
         "CreateFile",
+        "CreateFileMapping",
         "ReadFile",
         "WriteFile",
         "QueryDirectory",

@@ -1166,7 +1166,7 @@ class PAGE_PROTECTION(enum.IntFlag):
         https://learn.microsoft.com/en-us/windows/win32/memory/memory-protection-constants
     """
     # PAGE_NOACCESS = 0x01 --> Not supported by CreateFileMapping, hence not used
-    PAGE_READ_ONLY = 0x02
+    PAGE_READONLY = 0x02
     PAGE_READWRITE = 0x04
     PAGE_WRITECOPY = 0x08
     PAGE_EXECUTE = 0x10
