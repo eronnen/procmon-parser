@@ -105,6 +105,11 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
             if "QueryDirectory" == csv_record["Operation"]:
                 if csv_value in pml_value:
                     return True  # they don't write long directories sometimes
+            elif "CreateFileMapping" == csv_record["Operation"]:
+                if "PageProtection" in pml_value and "PageProtection" in csv_value:
+                    if pml_value[:pml_value.find("PageProtection")] == csv_value[:csv_value.find("PageProtection")]:
+                        # Procmon has a bug where they probably read the wrong struct field for PageProtection
+                        return True
     return False
 
 
