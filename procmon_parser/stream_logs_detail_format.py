@@ -8,8 +8,8 @@ from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperatio
     FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
     get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
     FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name, FileInformationClass, \
-    get_filesysyem_notify_change_flags, FilesystemSetInformationOperation, get_filesystem_createfilemapping_synctype, \
-    PAGE_PROTECTION
+    get_filesystem_notify_change_flags, FilesystemSetInformationOperation, get_filesystem_createfilemapping_synctype, \
+    PageProtection
 from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
     read_utf16_multisz, read_u64, read_filetime, read_s64
 
@@ -431,7 +431,7 @@ def get_filesystem_notify_change_directory_details(io, metadata, event, details_
     if metadata.sizeof_pvoid == 8:
         details_io.seek(4, 1)  # Padding for 64 bit
 
-    event.details["Filter"] = get_filesysyem_notify_change_flags(read_u32(details_io))
+    event.details["Filter"] = get_filesystem_notify_change_flags(read_u32(details_io))
 
 
 def get_filesystem_create_file_details(io, metadata, event, details_io, extra_detail_io):
@@ -495,9 +495,22 @@ def get_filesystem_create_file_mapping(io, metadata, event, details_io, extra_de
     sync_type = read_u32(details_io)  # note: asm uses 'movsxd', so it's signed with sign extension.
     page_protection = read_u32(details_io)
     event.details["SyncType"] = get_filesystem_createfilemapping_synctype(sync_type)
-    page_protection_name = PAGE_PROTECTION(page_protection).name
-    if page_protection_name:
-        event.details["PageProtection"] = page_protection_name
+
+    if page_protection & PageProtection.PAGE_READONLY:
+        event.details["PageProtection"] = PageProtection.PAGE_READONLY.name
+    elif page_protection & PageProtection.PAGE_READWRITE:
+        event.details["PageProtection"] = PageProtection.PAGE_READWRITE.name
+    elif page_protection & PageProtection.PAGE_WRITECOPY:
+        event.details["PageProtection"] = PageProtection.PAGE_WRITECOPY.name
+    elif page_protection & PageProtection.PAGE_EXECUTE:
+        event.details["PageProtection"] = PageProtection.PAGE_EXECUTE.name
+    elif page_protection & PageProtection.PAGE_EXECUTE_READ:
+        event.details["PageProtection"] = PageProtection.PAGE_EXECUTE_READ.name
+    elif page_protection & PageProtection.PAGE_EXECUTE_READWRITE:
+        event.details["PageProtection"] = PageProtection.PAGE_EXECUTE_READWRITE.name
+
+    if page_protection & PageProtection.PAGE_NOCACHE and "PageProtection" in event.details:
+        event.details["PageProtection"] += "|PAGE_NOCACHE"
 
 
 def get_filesystem_read_write_file_details(io, metadata, event, details_io, extra_detail_io):
