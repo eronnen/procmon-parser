@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["2.7", "3.7", "3.10"]
+        python-version: ["3.7", "3.11"]
 
     steps:
     - uses: actions/checkout@v3
@@ -30,7 +30,6 @@ jobs:
         python -m pip install flake8 pytest
         python -m pip install python-dateutil coverage coveralls
         python -m pip install .
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     #- name: Lint with flake8
     #  run: |
     #    # stop the build if there are Python syntax errors or undefined names
@@ -43,3 +42,7 @@ jobs:
     - name: Coverage
       run: |
         coverage run --source=procmon_parser/ -m pytest .
+    - name: Coveralls
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
