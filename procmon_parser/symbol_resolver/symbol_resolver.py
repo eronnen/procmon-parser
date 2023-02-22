@@ -197,8 +197,8 @@ class SymbolResolver(object):
             symbol_path: Replace the `_NT_SYMBOL_PATH` environment variable if it exists, or prevent using %TEMP% as
                 the download location of the symbol files. This must be a string compatible with the `_NT_SYMBOL_PATH`
                 syntax.
-            debug_callback: If set to True, set the dbghelp functionalities in debug mode (can be used to understand and
-                debug problems with symbol downloading and resolution).
+            debug_callback: A callback which can be used to understand and debug problems with symbol downloading and
+                resolution.
 
         Notes:
             If `dll_dir_path` is None, then the code does its best to find matching installations of the Debugging Tools
@@ -221,7 +221,8 @@ class SymbolResolver(object):
                 (v for v in [DbgHelpUtils.find_debugging_tools(), DbgHelpUtils.find_windbg_preview()] if v is not None),
                 None)
             if not dll_dir_path:
-                raise ValueError("You need to provide a valid path to 'dbghelp.dll' and 'symsrv.dll'.")
+                raise ValueError("You need to provide a valid path to 'dbghelp.dll' and 'symsrv.dll' or install either "
+                                 "debugging tools or windbg preview.")
         else:
             # just check that the given dir contains dbghelp and symsrv.
             if not dll_dir_path.is_dir():
