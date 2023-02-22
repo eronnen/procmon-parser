@@ -22,9 +22,6 @@ if sys.version_info >= (3, 5, 0):
 logger = logging.getLogger(__name__)
 
 #
-MAX_PATH = 260
-
-#
 # Callback Functions needed by some DbgHelp APIs.
 #
 

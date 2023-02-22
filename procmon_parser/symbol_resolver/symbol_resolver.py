@@ -27,6 +27,9 @@ from procmon_parser.symbol_resolver.win.win_types import PVOID, HANDLE, DWORD64,
 
 logger = logging.getLogger(__name__)
 
+# Maximum (default) Windows path length.
+MAX_PATH = 260
+
 
 @enum.unique
 class FrameType(enum.Enum):
@@ -380,7 +383,7 @@ class SymbolResolver(object):
 
             # We have the address and the module name. Get the corresponding file from the Symbol store!
             # Once we have the file, we'll be able to query the symbol for the address.
-            found_file = ctypes.create_unicode_buffer(260 * 2)
+            found_file = ctypes.create_unicode_buffer(MAX_PATH * ctypes.sizeof(ctypes.c_wchar))
             module_id = PVOID(module.timestamp)
             search_path = None  # use the default search path provided to SymInitialize.
 
@@ -520,7 +523,7 @@ class SymbolResolver(object):
                 fully_qualified_source_path = line.FileName
             else:
                 # we don't have a fully qualified source file path.
-                source_file_path_size = DWORD(260)
+                source_file_path_size = DWORD(MAX_PATH)
                 source_file_path = ctypes.create_unicode_buffer(source_file_path_size.value)
                 ret_val = self._dbghelp.SymGetSourceFileW(
                     pid,  # hProcess
