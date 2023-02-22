@@ -272,9 +272,8 @@ class SymbolResolver(object):
             if process.process_name in ["System"] and process.user.lower() == "nt authority\\system":
                 self.system_modules = process.modules
                 break
-
-        # Defensive check.
-        if not self.system_modules:
+        else:
+            # Couldn't find system modules. Log possible candidates.
             sys_pid = next((p for p in procmon_logs_reader.processes() if p.pid == 4), None)
             sys_name = next((p for p in procmon_logs_reader.processes() if p.process_name.lower() == "system"), None)
             if sys_pid is not None:
