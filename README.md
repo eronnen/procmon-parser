@@ -1,6 +1,6 @@
 # Parsing Procmon files with Python
 
-[![Build Status](https://travis-ci.com/eronnen/procmon-parser.svg?branch=master&service=github)](https://travis-ci.com/eronnen/procmon-parser)
+[![Build Status](https://github.com/eronnen/procmon-parser/actions/workflows/python-package.yml/badge.svg)](https://github.com/eronnen/procmon-parser/actions)
 [![Coverage Status](https://coveralls.io/repos/github/eronnen/procmon-parser/badge.svg?branch=master&service=github)](https://coveralls.io/github/eronnen/procmon-parser?branch=master&service=github)
 [![PyPI version](https://badge.fury.io/py/procmon-parser.svg)](https://badge.fury.io/py/procmon-parser)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/procmon-parser)
