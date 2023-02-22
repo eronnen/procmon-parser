@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 # Maximum (default) Windows path length.
 MAX_PATH = 260
+# Windows standard error code.
+ERROR_FILE_NOT_FOUND = 2
 
 
 @enum.unique
@@ -408,7 +410,7 @@ class SymbolResolver(object):
                     last_err = ctypes.get_last_error()
                     logger.debug("SymFindFileInPathW failed at attempt {j} (error: {last_err:#08x}).".format(
                         j=j, last_err=last_err))
-                    if j == 0 and last_err == 2:  # ERROR_FILE_NOT_FOUND
+                    if j == 0 and last_err == ERROR_FILE_NOT_FOUND:
                         # 1st try and file was not found: check if the directory exists. If it is, give it another try.
                         dir_path = pathlib.Path(module.path).parent
                         if dir_path.is_dir():
