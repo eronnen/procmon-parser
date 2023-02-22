@@ -1143,7 +1143,7 @@ FilesystemNotifyChangeFlags = OrderedDict([
 ])
 
 
-def get_filesysyem_notify_change_flags(flags):
+def get_filesystem_notify_change_flags(flags):
     return _get_mask_string(flags, FilesystemNotifyChangeFlags, ", ")
 
 
@@ -1154,12 +1154,13 @@ FileSystemCreateFileMappingSyncType = OrderedDict([
     # 'Unknown' is everything else.
 ])
 
+
 def get_filesystem_createfilemapping_synctype(synctype_value):
     # type: (int) -> str
     return FileSystemCreateFileMappingSyncType.get(synctype_value, "Unknown: {:#x}".format(synctype_value))
 
 
-class PAGE_PROTECTION(enum.IntFlag):
+class PageProtection(enum.IntEnum):
     """Memory protection constants. Used for FilesystemOperation.CreateFileMapping event details.
 
     See Also:
@@ -1172,7 +1173,7 @@ class PAGE_PROTECTION(enum.IntFlag):
     PAGE_EXECUTE = 0x10
     PAGE_EXECUTE_READ = 0x20
     PAGE_EXECUTE_READWRITE = 0x40
-    PAGE_EXECUTE_WRITECOPY = 0x80
+    # PAGE_EXECUTE_WRITECOPY = 0x80 --> seems to be not used by ProcMon, but is supported by CreateFileMapping
     # PAGE_GUARD = 0x100  --> Not supported by CreateFileMapping, hence not used
     PAGE_NOCACHE = 0x200
-    PAGE_WRITECOMBINE = 0x400 # seems to be not used by ProcMon, but is supported by CreateFileMapping
+    # PAGE_WRITECOMBINE = 0x400 --> seems to be not used by ProcMon, but is supported by CreateFileMapping
