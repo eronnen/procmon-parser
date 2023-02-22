@@ -28,7 +28,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest
-        python -m pip install python-dateutil coverage coveralls
+        python -m pip install python-dateutil coverage
         python -m pip install .
     #- name: Lint with flake8
     #  run: |
@@ -42,7 +42,9 @@ jobs:
     - name: Coverage
       run: |
         coverage run --source=procmon_parser/ -m pytest .
+        coverage lcov
     - name: Coveralls
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: coverage.lcov
