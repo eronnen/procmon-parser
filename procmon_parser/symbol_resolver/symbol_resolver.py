@@ -24,13 +24,9 @@ from procmon_parser.symbol_resolver.win.dbghelp import (
     DbgHelp, PFINDFILEINPATHCALLBACK, SYMBOL_INFOW, IMAGEHLP_LINEW64, SYMOPT, SSRVOPT, PSYMBOL_REGISTERED_CALLBACK64,
     CBA, PIMAGEHLP_CBA_EVENTW)
 from procmon_parser.symbol_resolver.win.win_types import PVOID, HANDLE, DWORD64, DWORD, ULONG, ULONG64, BOOL
+from procmon_parser.symbol_resolver.win.win_consts import MAX_PATH, ERROR_FILE_NOT_FOUND
 
 logger = logging.getLogger(__name__)
-
-# Maximum (default) Windows path length.
-MAX_PATH = 260
-# Windows standard error code.
-ERROR_FILE_NOT_FOUND = 2
 
 
 @enum.unique
@@ -385,7 +381,6 @@ class SymbolResolver(object):
 
             # We have the address and the module name. Get the corresponding file from the Symbol store!
             # Once we have the file, we'll be able to query the symbol for the address.
-            found_file = ctypes.create_unicode_buffer(MAX_PATH * ctypes.sizeof(ctypes.c_wchar))
             module_id = PVOID(module.timestamp)
             search_path = None  # use the default search path provided to SymInitialize.
 
@@ -393,44 +388,21 @@ class SymbolResolver(object):
             # 1. The module is an MS module, in which case it's going to be resolved pretty much automatically.
             #   1.a if it's not an MS module it's going to fail.
             # 2. If it's not an MS module, then we indicate to SymFindFileInPath where to find the binary in SearchPath.
-            for j in range(2):
-                ret_val = self._dbghelp.SymFindFileInPathW(
-                    HANDLE(pid),  # hProcess
-                    search_path,  # SearchPath
-                    module.path,  # FileName (PCWSTR: it's fine to pass a python string)
-                    ctypes.byref(module_id),  # id
-                    module.size,  # two
-                    0,  # three
-                    SSRVOPT.SSRVOPT_GUIDPTR,  # flags: ProcMon uses 'SSRVOPT_GUIDPTR' but it's not a GUID??? still works
-                    found_file,  # [out] FoundFile
-                    PFINDFILEINPATHCALLBACK(0),  # callback (nullptr)
-                    None  # context
-                )
-                if not ret_val:
-                    last_err = ctypes.get_last_error()
-                    logger.debug("SymFindFileInPathW failed at attempt {j} (error: {last_err:#08x}).".format(
-                        j=j, last_err=last_err))
-                    if j == 0 and last_err == ERROR_FILE_NOT_FOUND:
-                        # 1st try and file was not found: check if the directory exists. If it is, give it another try.
-                        dir_path = pathlib.Path(module.path).parent
-                        if dir_path.is_dir():
-                            # directory exists; loop and try again.
-                            search_path = str(dir_path)
-                        else:
-                            # the directory doesn't contain the required file on the local computer; just get out.
-                            break
-                    else:
-                        # no more tries left or unknown error.
+            ret_val, found_file = self._find_file(pid, search_path, module, module_id)
+            if not ret_val:
+                last_err = ctypes.get_last_error()
+                logger.debug("SymFindFileInPathW failed at attempt 0 (error: {last_err:#08x}).".format(
+                    last_err=last_err))
+                if last_err == ERROR_FILE_NOT_FOUND:
+                    # check if the directory exists. If it is, use it as the search path.
+                    dir_path = pathlib.Path(module.path).parent
+                    search_path = str(dir_path) if dir_path.is_dir() else search_path
+                    ret_val, found_file = self._find_file(pid, search_path, module, module_id)
+                    if ret_val == 0:
                         logger.error("SymFindFileInPathW: ({last_err:#08x}) {formatted_last_err}".format(
                             last_err=last_err, formatted_last_err=ctypes.FormatError(last_err)))
-                        break
-                else:
-                    # no error.
-                    break
-
-            if not found_file.value:
-                yield StackTraceFrameInformation(frame_type, frame_number, address, module)
-                continue
+                        yield StackTraceFrameInformation(frame_type, frame_number, address, module)
+                        continue
 
             logger.debug("Found file: {found_file.value}".format(found_file=found_file))
 
@@ -554,8 +526,51 @@ class SymbolResolver(object):
         # dbghelp symbol cleanup
         self._dbghelp.SymCleanup(pid)
 
+    def _find_file(self, pid, search_path, module, module_id):
+        # type: (int, str | None, procmon_parser.Module, ctypes.c_void_p[int]) -> tuple[int, ctypes.Array[ctypes.c_wchar]]
+        """[Internal] Locates a symbol file or executable image.
+
+        Args:
+            pid: process ID; must be the same as the one passed to SymInitialize.
+            search_path: Either None (use the default search path) or a specific search path.
+            module: The module for which we're trying to find the symbol information.
+            module_id: pointer to id, see SymFindFileInPathW documentation for more information.
+
+        Returns:
+            A tuple: the return code of the SymFindFileInPathW function and the path to the symbolic file on success.
+        """
+        found_file = ctypes.create_unicode_buffer(MAX_PATH * ctypes.sizeof(ctypes.c_wchar))
+        ret_val = self._dbghelp.SymFindFileInPathW(
+            HANDLE(pid),  # hProcess
+            search_path,  # SearchPath
+            module.path,  # FileName (PCWSTR: it's fine to pass a python string)
+            ctypes.byref(module_id),  # id
+            module.size,  # two
+            0,  # three
+            SSRVOPT.SSRVOPT_GUIDPTR,  # flags: ProcMon uses 'SSRVOPT_GUIDPTR' but it's not a GUID??? still works
+            found_file,  # [out] FoundFile
+            PFINDFILEINPATHCALLBACK(0),  # callback (nullptr)
+            None  # context
+        )
+        return ret_val, found_file
+
     def _symbol_registered_callback(self, handle, action_code, callback_data, user_context):
         # type: (HANDLE, ULONG, ULONG64, ULONG64) -> BOOL
+        """[Internal] Callback passed to SymRegisterCallbackW64. Translates arguments to python types before calling the
+        user-defined callback.
+
+        Notes:
+            Only called if a callback is passed to SymbolResolver constructor.
+
+        Args:
+            handle: handle passed initially to SymInitialize (actually the pid of the process).
+            action_code: One of the constant defined in the `CBA` enumeration.
+            callback_data: data passed from the symbol engine. Interpretation of the data depends on the action code.
+            user_context: user defined data; The pid of the process.
+
+        Returns:
+            The value returned by the user-defined callback.
+        """
         param_callback_data = callback_data
         try:
             param_action_code = CBA(action_code)

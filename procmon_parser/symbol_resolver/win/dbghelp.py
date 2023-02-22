@@ -12,6 +12,7 @@ import enum
 
 from procmon_parser.symbol_resolver.win.win_types import (
     HANDLE, PCSTR, BOOL, DWORD, PCWSTR, PVOID, PWSTR, DWORD64, ULONG, ULONG64, WCHAR, PDWORD64, PDWORD, BOOLEAN)
+from procmon_parser.symbol_resolver.win.win_consts import MAX_PATH
 
 if sys.version_info >= (3, 5, 0):
     import typing
@@ -20,6 +21,7 @@ if sys.version_info >= (3, 5, 0):
         import _ctypes  # only used for typing as ctypes doesn't export inner types.
 
 logger = logging.getLogger(__name__)
+
 
 #
 # Callback Functions needed by some DbgHelp APIs.
