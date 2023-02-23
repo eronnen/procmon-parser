@@ -209,7 +209,8 @@ class SymbolResolver(object):
         Raises:
             ValueError:
                 The provided DLL path is not a valid directory, does not contain the required DLL(s) or the automatic
-                finder could not find the required DLL.
+                finder could not find the required DLL. Also raises if `skip_symsrv` is True but _NT_SYMBOL_PATH env.
+                var. is not set.
             RuntimeError:
                 The initialisation couldn't get the system modules.
         """
@@ -240,6 +241,8 @@ class SymbolResolver(object):
         # _NT_SYMBOL_PATH is needed to store symbols locally. If it's not set, we need to set it.
         nt_symbol_path = os.environ.get("_NT_SYMBOL_PATH", None)
         if nt_symbol_path is None:
+            if skip_symsrv:
+                raise ValueError("_NT_SYMBOL_PATH env. var. is not set: you can't skip the symsrv.dll check.")
             if symbol_path is None:
                 # resolve TEMP folder and set it at the symbol path.
                 symbol_path = "srv*{environ_tmp}*https://msdl.microsoft.com/download/symbols".format(
