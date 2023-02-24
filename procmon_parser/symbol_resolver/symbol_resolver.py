@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 """Module used to resolve symbolic information for a given a stack trace.
 """
+import contextlib
 import ctypes
 import enum
 import logging
@@ -332,8 +333,10 @@ class SymbolResolver(object):
             The `ProcmonLogsReader` instance must be instantiated with `should_get_stacktrace` set to True (default).
 
         Raises:
-            RuntimeError: the given event des not contain any stack trace information. Be sure to call
-            `ProcmonLogsReader` with the `should_get_stacktrace` parameter set to True.
+            RuntimeError:
+                - The given event des not contain any stack trace information (be sure to call `ProcmonLogsReader` with
+                the `should_get_stacktrace` parameter set to True).
+                - The symbol engine could not be  correctly initialized.
 
         Examples:
             ```python
@@ -351,12 +354,14 @@ class SymbolResolver(object):
         Yields:
             An instance of `StackTraceFrameInformation` for each of the frame in the stack trace.
         """
+        with self._dbghelp_init(event) as sym_pid:
+            yield from self._resolve_stack_trace(event, sym_pid)
+
+    def _resolve_stack_trace(self, event, pid):
+        # type: (procmon_parser.Event, int) -> typing.Iterator[StackTraceFrameInformation]
+
         if not event.stacktrace or event.stacktrace is None:
             raise RuntimeError("Trying to resolve a stack trace while there is no stack trace.")
-
-        # Initialize dbghelp symbolic information.
-        pid = event.process.pid
-        self._dbghelp.SymInitialize(pid, None, False)
 
         # set up callback if we are in debug mode
         if self._debug_callback:
@@ -526,9 +531,6 @@ class SymbolResolver(object):
             yield StackTraceFrameInformation(frame_type, frame_number, address, module, symbol_info, displacement.value,
                                              line, line_displacement.value, fully_qualified_source_path)
 
-        # dbghelp symbol cleanup
-        self._dbghelp.SymCleanup(pid)
-
     def _find_file(self, pid, search_path, module, module_id):
         # type: (int, str | None, procmon_parser.Module, ctypes.c_void_p[int]) -> tuple[int, ctypes.Array[ctypes.c_wchar]]
         """[Internal] Locates a symbol file or executable image.
@@ -587,6 +589,36 @@ class SymbolResolver(object):
 
         ret = self._debug_callback(handle, param_action_code, param_callback_data, user_context)
         return ret
+
+    @contextlib.contextmanager
+    def _dbghelp_init(self, event):
+        # type: (procmon_parser.Event) -> typing.Generator[int, None, None]
+        """[internal] context manager used to make sure we clean up symbol information on exit from the
+        `resolve_stack_trace` function. Takes care of initializing and performing cleanup of the symbol engine.
+
+        Args:
+            event: The event for which the stack trace is to be resolved.
+
+        Returns:
+            The process pid used by the symbolic functions.
+        """
+        pid = event.process.pid
+        if self._dbghelp.SymInitialize(pid, None, False) == 0:
+            last_err = ctypes.get_last_error()
+            raise RuntimeError("SymInitialize failed: {last_err:#08x}; msg: {err_msg}".format(
+                last_err=last_err, err_msg=ctypes.FormatError(last_err)))
+        else:
+            logger.debug("SymInitialize OK.")
+        try:
+            yield pid
+        finally:
+            if self._dbghelp.SymCleanup(pid) == 0:
+                last_err = ctypes.get_last_error()
+                raise RuntimeError("SymCleanup failed: {last_err:#08x}; msg: {err_msg}".format(
+                    last_err=last_err, err_msg=ctypes.FormatError(last_err)))
+            else:
+                logger.debug("SymCleanup OK.")
+
 
 
 class DbgHelpUtils(object):
