@@ -13,7 +13,7 @@ __all__ = [
     'Rule', 'Column', 'RuleAction', 'RuleRelation', 'PMLError'
 ]
 
-if sys.platform == "win32" and sys.version_info >= (3, 5, 0):
+if sys.platform == "win32":
     from procmon_parser.symbol_resolver.symbol_resolver import (
         SymbolResolver, StackTraceFrameInformation, StackTraceInformation, CBA)
 

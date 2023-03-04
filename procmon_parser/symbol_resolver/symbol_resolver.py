@@ -10,16 +10,20 @@ import os
 import platform
 import re
 import sys
-import winreg
 
 import procmon_parser
 
 if sys.platform != "win32":
     raise RuntimeError("Symbol Resolver can only be used on Windows Operating Systems.")
 
-if sys.version_info >= (3, 5, 0):
+_ver = sys.version_info[:3]
+if _ver >= (3, 5, 0):
+    import winreg
     import typing
-    import pathlib  # TODO: to be converted to py 2.7 equivalent.
+    import pathlib
+elif _ver <= (2, 7, 18):
+    import pathlib2 as pathlib
+    import _winreg as winreg
 
 from procmon_parser.symbol_resolver.win.dbghelp import (
     DbgHelp, PFINDFILEINPATHCALLBACK, SYMBOL_INFOW, IMAGEHLP_LINEW64, SYMOPT, SSRVOPT, PSYMBOL_REGISTERED_CALLBACK64,
@@ -171,8 +175,11 @@ class StackTraceInformation(object):
 
         output = list()
         for stfi in resolved_stack_trace:
-            output.append(f"{stfi.frame:<{max_frame}} {stfi.module_name:<{max_module}} {stfi.location:<{max_location}} "
-                          f"0x{stfi.address:<{max_address}x} {stfi.module_path}")
+            output.append("{stfi.frame:<{max_frame}} {stfi.module_name:<{max_module}} {stfi.location:<{max_location}} "
+                          "0x{stfi.address:<{max_address}x} {stfi.module_path}".format(
+                           stfi=stfi, max_frame=max_frame, max_module=max_module, max_location=max_location,
+                           max_address=max_address)
+            )
 
         return '\n'.join(output)
 
@@ -227,6 +234,8 @@ class SymbolResolver(object):
                 raise ValueError("You need to provide a valid path to 'dbghelp.dll' and 'symsrv.dll' or install either "
                                  "debugging tools or windbg preview.")
         else:
+            if isinstance(dll_dir_path, str):
+                dll_dir_path = pathlib.Path(dll_dir_path)
             # just check that the given dir contains dbghelp and symsrv.
             if not dll_dir_path.is_dir():
                 raise ValueError("The given path '{dll_dir_path}' is not a directory.".format(
@@ -268,7 +277,7 @@ class SymbolResolver(object):
         self._dbghelp.SymSetOptions(sum(dbghelp_options))  # 0x12237 (if not SYMOPT_DEBUG).
 
         # maximum user-address, used to discern between user and kernel modules (which don't change between processes).
-        self._max_user_address: int = procmon_logs_reader.maximum_application_address
+        self._max_user_address = procmon_logs_reader.maximum_application_address
 
         # Keep track of all system modules.
         for process in procmon_logs_reader.processes():
@@ -355,7 +364,9 @@ class SymbolResolver(object):
             An instance of `StackTraceFrameInformation` for each of the frame in the stack trace.
         """
         with self._dbghelp_init(event) as sym_pid:
-            yield from self._resolve_stack_trace(event, sym_pid)
+            # yield from self._resolve_stack_trace(event, sym_pid)
+            for sti in self._resolve_stack_trace(event, sym_pid):
+                return sti
 
     def _resolve_stack_trace(self, event, pid):
         # type: (procmon_parser.Event, int) -> typing.Iterator[StackTraceFrameInformation]
@@ -620,7 +631,6 @@ class SymbolResolver(object):
                 logger.debug("SymCleanup OK.")
 
 
-
 class DbgHelpUtils(object):
     """Utility functions to automatically find DbgHelp.dll and Symsrv.dll if Debugging Tools For Windows or Windbg
     preview are installed on the current system.
@@ -671,7 +681,7 @@ class DbgHelpUtils(object):
         max_ver = max(versions.keys())
         max_ver_str = versions[max_ver]
 
-        debugger_path: pathlib.Path | None = None
+        debugger_path = None  # type: pathlib.Path | None
         try:
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, sdk_key) as top_key:
                 value, value_type = winreg.QueryValueEx(top_key, "WindowsDebuggersRoot{max_ver_str}".format(
@@ -707,7 +717,7 @@ class DbgHelpUtils(object):
         package_key = (r"SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel"
                        r"\Repository\Packages")
 
-        windbg_location: pathlib.Path | None = None
+        windbg_location = None  # type: pathlib.Path | None
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, package_key) as top_key:
                 num_keys, _, _ = winreg.QueryInfoKey(top_key)

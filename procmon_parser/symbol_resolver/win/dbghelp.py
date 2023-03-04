@@ -6,19 +6,23 @@ DbgHelp.dll is the main library for resolving symbols.
 """
 import ctypes
 import logging
-import pathlib
 import sys
-import enum
+
 
 from procmon_parser.symbol_resolver.win.win_types import (
     HANDLE, PCSTR, BOOL, DWORD, PCWSTR, PVOID, PWSTR, DWORD64, ULONG, ULONG64, WCHAR, PDWORD64, PDWORD, BOOLEAN)
 from procmon_parser.symbol_resolver.win.win_consts import MAX_PATH
 
-if sys.version_info >= (3, 5, 0):
+_ver = sys.version_info[:3]
+if _ver >= (3, 5, 0):
+    import enum
+    import pathlib
     import typing
-
     if typing.TYPE_CHECKING:
         import _ctypes  # only used for typing as ctypes doesn't export inner types.
+elif _ver <= (2, 7, 18):
+    import aenum as enum
+    import pathlib2 as pathlib
 
 logger = logging.getLogger(__name__)
 
