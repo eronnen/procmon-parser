@@ -70,7 +70,6 @@ def get_rule_integer_value(column, value):
 RawRuleStruct = """
 Struct that contains a single rule which can be applied on the process monitor events.
 """ * Struct(
-    "reserved1" / Default(Bytes(3), 0) * "!!Unknown field!!",
     "column" / ColumnType,
     "relation" / RuleRelationType,
     "action" / RuleActionType,
@@ -80,9 +79,9 @@ Struct that contains a single rule which can be applied on the process monitor e
     "value" / FixedUTF16CString(lambda this: this.value_length, "value"),
     "after_value_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
     "int_value" / Rebuild(Int32ul, lambda this: get_rule_integer_value(this.column, this.value)),
-    "reserved2" / Default(Bytes(1), 0) * "!!Unknown field!!",
+    "reserved" / Default(Int32ul, 0) * "!!Unknown field!!",
 
-    # To calculate value string in build time
+    # NOT IN THE REAL FORMAT - used to calculate value string in build time
     "value_length" / Pointer(lambda this: this.value_offset,
                              Default(Int32ul, lambda this: this.after_value_offset - this.before_value_offset))
 )
@@ -101,10 +100,9 @@ RuleStruct = RuleStructAdapter(RawRuleStruct)
 RawRulesStruct = """
 Struct that contains a list of procmon rules.
 """ * Struct(
-    "reserved1" / Const(1, Int8ul) * "!!Unknown field!!",
-    "rules_count" / Rebuild(Int8ul, lambda this: len(this.rules)),
+    "reserved" / Const(1, Int8ul) * "!!Unknown field!!",
+    "rules_count" / Rebuild(Int32ul, lambda this: len(this.rules)),
     "rules" / Array(lambda this: this.rules_count, RuleStruct),
-    "reserved1" / Default(Bytes(3), 0) * "!!Unknown field!!",
 )
 
 
