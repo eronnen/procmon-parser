@@ -44,9 +44,8 @@ The filter rules are represented by the following layout:
 **FILTER_RULES**
 
 | Data Type     | Description                      |
-| ------------- | -------------------------------- |
-| Byte          | Unknown                          |
-| Byte          | the number of rules in the array |
+|---------------| -------------------------------- |
+| Uint16        | the number of rules in the array |
 | FILTER_RULE[] | array of all the rules           |
 | Byte[3]       | Unknown                          |
 

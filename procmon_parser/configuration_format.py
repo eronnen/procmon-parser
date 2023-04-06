@@ -101,8 +101,7 @@ RuleStruct = RuleStructAdapter(RawRuleStruct)
 RawRulesStruct = """
 Struct that contains a list of procmon rules.
 """ * Struct(
-    "reserved1" / Const(1, Int8ul) * "!!Unknown field!!",
-    "rules_count" / Rebuild(Int8ul, lambda this: len(this.rules)),
+    "rules_count" / Rebuild(Int16ul, lambda this: len(this.rules)),
     "rules" / Array(lambda this: this.rules_count, RuleStruct),
     "reserved1" / Default(Bytes(3), 0) * "!!Unknown field!!",
 )
