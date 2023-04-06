@@ -34,7 +34,8 @@ class Rule(object):
                                                  self.action.name.capitalize())
 
     def __repr__(self):
-        return "Rule({}, {}, \"{}\", {})".format(str(self.column), str(self.relation), self.value, str(self.action))
+        return "Rule(Column.{}, Relation.{}, \"{}\", Action.{})".format(self.column.name, self.relation.name,
+                                                                        self.value, self.action.name)
 
     def __hash__(self):
         return hash((self.column.value, self.relation.value, self.value, self.action.value))
