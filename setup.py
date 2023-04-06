@@ -15,10 +15,12 @@ setuptools.setup(
     download_url="https://github.com/eronnen/procmon-parser/archive/v0.3.0.tar.gz",
     packages=["procmon_parser"],
     install_requires=[
-        "enum34;python_version<'3.4'",
+        # "enum34;python_version<'3.4'",
+        "aenum;python_version<'3.4'",
         "construct>=2.10.54",
         "six",
         "ipaddress;python_version<'3'",
+        "pathlib2;python_version<'3'",
     ],
     classifiers=[
         "Intended Audience :: Developers",
