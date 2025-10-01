@@ -186,7 +186,7 @@ In addition, an event can have an **extra detail** event, which can contain even
 
 
 
-All of the detail structures that are known are described in [stream_logs_details_format.py](../procmon_parser/stream_logs_details_format.py).
+All of the detail structures that are known are described in [stream_logs_detail_format.py](../procmon_parser/stream_logs_detail_format.py).
 
 #### Network
 
