@@ -1,3 +1,5 @@
+import sys
+
 from six import PY2
 
 from procmon_parser.configuration import *
@@ -10,6 +12,12 @@ __all__ = [
     'ProcmonLogsReader', 'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
     'Rule', 'Column', 'RuleAction', 'RuleRelation', 'PMLError'
 ]
+
+if sys.platform == "win32":
+    from procmon_parser.symbol_resolver.symbol_resolver import (
+        SymbolResolver, StackTraceFrameInformation, StackTraceInformation, CBA)
+
+    __all__.extend(['SymbolResolver', 'StackTraceFrameInformation', 'StackTraceInformation', 'CBA'])
 
 
 class ProcmonLogsReader(object):
@@ -43,6 +51,12 @@ class ProcmonLogsReader(object):
 
     def __len__(self):
         return self._struct_readear.number_of_events
+
+    @property
+    def maximum_application_address(self):
+        """Return the highest possible user land address.
+        """
+        return self._struct_readear.maximum_application_address
 
     def processes(self):
         """Return a list of all the known processes in the log file
