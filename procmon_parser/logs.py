@@ -136,19 +136,22 @@ class Event(object):
         return hash((self.process.pid, self.tid, self.operation, self.date_filetime))
 
     def date(self, is_utc=True):
-        if self.date_filetime is not None:
-            from_timestamp = datetime.datetime.utcfromtimestamp if is_utc else datetime.datetime.fromtimestamp
-            return from_timestamp(
-                (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + datetime.timedelta(
-                microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
-        else:
+        """The timezone aware date of the event, in UTC or in the local timezone
+        """
+        if self.date_filetime is None:
             return None
+        date = datetime.datetime.fromtimestamp(
+            (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS,
+            datetime.timezone.utc) + datetime.timedelta(
+            microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
+        return date if is_utc else date.astimezone()
 
     @staticmethod
     def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False):
         # Actually Procmon prints it in local time instead of UTC
         hundred_nanoseconds = (date_filetime % HUNDREDS_OF_NANOSECONDS)
-        d = datetime.datetime.utcfromtimestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS)
+        d = datetime.datetime.fromtimestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS,
+                                            datetime.timezone.utc)
 
         if show_nanoseconds:
             time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(hundred_nanoseconds)
