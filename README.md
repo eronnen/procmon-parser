@@ -181,16 +181,6 @@ To test that the parsing is done correctly, There are two fairly large Procmon P
 log files, taken from 64 bit and 32 bit machine. The test checks that each event in the PML parsed by ``procmon-parser``
 equals to the respective event in the CSV. 
 
-## Development
-
-The project is managed with [uv](https://docs.astral.sh/uv/):
-
-```bash
-uv sync      # create the virtualenv and install the package with its dev dependencies
-uv run pytest
-uv build
-```
-
 ## Contributing
 
 `procmon-parser` is developed on GitHub at [eronnen/procmon-parser](https://github.com/eronnen/procmon-parser).
