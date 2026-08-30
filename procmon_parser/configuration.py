@@ -4,7 +4,7 @@ Python types that procmon configuration uses
 
 from procmon_parser.consts import Column, RuleAction, RuleRelation
 
-__all__ = ['Column', 'RuleAction', 'RuleRelation', 'Rule', 'Font']
+__all__ = ['Column', 'Font', 'Rule', 'RuleAction', 'RuleRelation']
 
 
 class Rule:

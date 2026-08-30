@@ -74,12 +74,11 @@ PARTIAL_SUPPORTED_COLUMNS = {
 
 
 def is_operation_not_unknown(operation):
-    if operation in ["SetStorageReservedIdInformation", "QuerySatLxInformation",
-                                   "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
-                                   "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
-                                   "QueryCaseSensitiveInformationForceAccessCheck"]:
-        return True  # These operations were added in 3.60 and are not recognized by 3.53
-    return False
+    # These operations were added in 3.60 and are not recognized by 3.53
+    return operation in ["SetStorageReservedIdInformation", "QuerySatLxInformation",
+                         "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
+                         "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
+                         "QueryCaseSensitiveInformationForceAccessCheck"]
 
 
 def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, csv_value, i):
@@ -87,7 +86,7 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
         return False
 
     if column_name == "Detail":
-        if "Registry" == csv_record["Event Class"]:
+        if csv_record["Event Class"] == "Registry":
             if "Data: " in csv_record["Detail"] and "Type: REG_" in csv_record["Detail"]:
                 pml_data = re.search("Data: (.*)", pml_record["Detail"]).group(1)
                 csv_data = re.search("Data: (.*)", csv_record["Detail"]).group(1)
@@ -101,15 +100,13 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
                     return True
                 elif csv_data in pml_data and csv_data[:16] == pml_data[:16]:
                     return True
-        elif "File System" == csv_record["Event Class"]:
-            if "QueryDirectory" == csv_record["Operation"]:
-                if csv_value in pml_value:
-                    return True  # they don't write long directories sometimes
-            elif "CreateFileMapping" == csv_record["Operation"]:
-                if "PageProtection" in pml_value and "PageProtection" in csv_value:
-                    if pml_value[:pml_value.find("PageProtection")] == csv_value[:csv_value.find("PageProtection")]:
-                        # Procmon has a bug where they probably read the wrong struct field for PageProtection
-                        return True
+        elif csv_record["Event Class"] == "File System":
+            if csv_record["Operation"] == "QueryDirectory" and csv_value in pml_value:
+                return True  # they don't write long directories sometimes
+            elif csv_record["Operation"] == "CreateFileMapping" and "PageProtection" in pml_value \
+                    and "PageProtection" in csv_value:
+                # Procmon has a bug where they probably read the wrong struct field for PageProtection
+                return pml_value[:pml_value.find("PageProtection")] == csv_value[:csv_value.find("PageProtection")]
     return False
 
 
@@ -123,9 +120,9 @@ def check_pml_equals_csv(csv_reader, pml_reader):
         first_event_date = first_event_date if first_event_date else pml_record.date_filetime
         pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date)
 
-        if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>":
-            if is_operation_not_unknown(pml_compatible_record["Operation"]):
-                continue
+        if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>" \
+                and is_operation_not_unknown(pml_compatible_record["Operation"]):
+            continue
 
         for column in SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]
@@ -162,7 +159,7 @@ def check_pml_equals_csv(csv_reader, pml_reader):
                             if detail.startswith("FileInformationClass: "):
                                 if idx == 2 and str(idx) in pml_record.details:
                                     # They stupid
-                                    csv_detail.append(f"{str(idx)}: {pml_record.details[str(idx)]}")
+                                    csv_detail.append(f"{idx!s}: {pml_record.details[str(idx)]}")
                             else:
                                 csv_detail.append(detail)
 
@@ -187,7 +184,7 @@ def test_pml_equals_csv_specific_events(specific_events_logs_readers):
 
 def test_processes_windows_10_64bit(pml_reader_windows10_64bit):
     processes = pml_reader_windows10_64bit.processes()
-    assert 25 == len(processes)
+    assert len(processes) == 25
     explorer = next(p for p in processes if p.process_name.lower() == "explorer.exe")
     assert explorer.is_process_64bit
     assert explorer.session == 1

@@ -62,7 +62,7 @@ The array itself is represented by:
 
 **Process Array**
 
-The array of processes, which allows every event to have the process as an index in the array. 
+The array of processes, which allows every event to have the process as an index in the array.
 
 | Offset | Data Type | Description                                             |
 | ------ | --------- | ------------------------------------------------------- |
@@ -181,7 +181,7 @@ This is the array of all the captured events. Each event has the information nee
 
 ### Detail Structures
 
-Every event has a different **detail** structure at the end of the structure, based on the operation. The detail structure contains the *path* column, the *category* column and the *detail* column of the event. There are something like 50+ operation and sub operation types so most of them are still unknown.  
+Every event has a different **detail** structure at the end of the structure, based on the operation. The detail structure contains the *path* column, the *category* column and the *detail* column of the event. There are something like 50+ operation and sub operation types so most of them are still unknown.
 In addition, an event can have an **extra detail** event, which can contain even more detail values. The extra detail structure doesn't necessarily comes after the event structure, so there is an offset field relative to the event structure.
 
 

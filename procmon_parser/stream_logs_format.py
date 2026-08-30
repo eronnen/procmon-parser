@@ -219,7 +219,8 @@ def read_event(io, metadata):
         # The extra details structure surprisingly can be separated from the event structure
         extra_details_offset -= \
             (CommonEventStruct.size + details_size + sizeof_stacktrace)
-        assert extra_details_offset >= 0
+        if extra_details_offset < 0:
+            raise PMLError("PML is corrupt: extra details offset points inside the event structure.")
 
         current_offset = io.tell()
         io.seek(extra_details_offset, 1)

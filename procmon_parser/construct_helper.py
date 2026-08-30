@@ -92,11 +92,11 @@ class CheckCustom(Check):
     def _build(self, obj, stream, context, path):
         try:
             super()._build(obj, stream, context, path)
-        except CheckError:
-            raise self.exc_type(self.msg)
+        except CheckError as e:
+            raise self.exc_type(self.msg) from e
 
     def _parse(self, stream, context, path):
         try:
             super()._parse(stream, context, path)
-        except CheckError:
-            raise self.exc_type(self.msg)
+        except CheckError as e:
+            raise self.exc_type(self.msg) from e
