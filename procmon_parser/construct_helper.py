@@ -1,5 +1,18 @@
-from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
-    GreedyBytes, If, Check, CheckError
+from construct import (
+    Adapter,
+    Bytes,
+    Check,
+    CheckError,
+    CString,
+    Enum,
+    FixedSized,
+    GreedyBytes,
+    GreedyRange,
+    GreedyString,
+    If,
+    IfThenElse,
+    PaddedString,
+)
 
 
 # ===============================================================================
@@ -10,11 +23,11 @@ class OriginalEnumAdapter(Enum):
     """
 
     def __init__(self, subcon, enum_class, *arg, **kwargs):
-        super(OriginalEnumAdapter, self).__init__(subcon, enum_class, *arg, **kwargs)
+        super().__init__(subcon, enum_class, *arg, **kwargs)
         self.original_enum = enum_class
 
     def _decode(self, obj, context, path):
-        return self.original_enum[super(OriginalEnumAdapter, self)._decode(obj, context, path)]
+        return self.original_enum[super()._decode(obj, context, path)]
 
 
 class ListAdapter(Adapter):
@@ -34,7 +47,7 @@ class UnicodeStringAdapter(Adapter):
 
     def _encode(self, obj, context, path):
         if not isinstance(obj, str):
-            raise TypeError("Expected string, got {}".format(type(obj)))
+            raise TypeError(f"Expected string, got {type(obj)}")
         return str(obj)
 
 
@@ -72,18 +85,18 @@ def FixedBytes(size_func):
 
 class CheckCustom(Check):
     def __init__(self, func, exc_type, msg):
-        super(CheckCustom, self).__init__(func)
+        super().__init__(func)
         self.exc_type = exc_type
         self.msg = msg
 
     def _build(self, obj, stream, context, path):
         try:
-            super(CheckCustom, self)._build(obj, stream, context, path)
+            super()._build(obj, stream, context, path)
         except CheckError:
             raise self.exc_type(self.msg)
 
     def _parse(self, stream, context, path):
         try:
-            super(CheckCustom, self)._parse(stream, context, path)
+            super()._parse(stream, context, path)
         except CheckError:
             raise self.exc_type(self.msg)

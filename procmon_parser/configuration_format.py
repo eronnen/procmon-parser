@@ -4,12 +4,32 @@ Definitions For the process monitor configuration file formats.
 from collections import OrderedDict
 from io import BytesIO
 
-from construct import Struct, Int8ul, Int16ul, Int32ul, Bytes, PaddedString, Array, Const, Switch, Tell, Adapter, \
-    Rebuild, Default, Pointer, StreamError
+from construct import (
+    Adapter,
+    Array,
+    Const,
+    Default,
+    Int8ul,
+    Int16ul,
+    Int32ul,
+    PaddedString,
+    Pointer,
+    Rebuild,
+    StreamError,
+    Struct,
+    Switch,
+    Tell,
+)
 
-from procmon_parser.configuration import Column, RuleAction, RuleRelation, Rule, Font
-from procmon_parser.construct_helper import OriginalEnumAdapter, FixedUTF16String, FixedUTF16CString, FixedArray, \
-    FixedBytes, CheckCustom
+from procmon_parser.configuration import Column, Font, Rule, RuleAction, RuleRelation
+from procmon_parser.construct_helper import (
+    CheckCustom,
+    FixedArray,
+    FixedBytes,
+    FixedUTF16CString,
+    FixedUTF16String,
+    OriginalEnumAdapter,
+)
 
 # ===============================================================================
 # Procmon configuration file definitions

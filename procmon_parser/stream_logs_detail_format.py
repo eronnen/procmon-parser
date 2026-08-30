@@ -2,16 +2,46 @@ from collections import namedtuple
 from io import BytesIO
 from struct import error, unpack
 
-from procmon_parser.consts import EventClass, ProcessOperation, RegistryOperation, FilesystemOperation, \
-    FilesystemSubOperations, FilesysemDirectoryControlOperation, RegistryTypes, RegistryKeyValueInformationClass, \
-    RegistryKeyInformationClass, get_registry_access_mask_string, RegistryDisposition, RegistryKeySetInformationClass, \
-    FilesystemQueryInformationOperation, get_filesystem_access_mask_string, FilesystemDisposition, \
-    get_filesysyem_create_options, get_filesysyem_create_attributes, get_filesysyem_create_share_mode, \
-    FilesystemOpenResult, get_filesysyem_io_flags, FilesystemPriority, get_ioctl_name, FileInformationClass, \
-    get_filesystem_notify_change_flags, FilesystemSetInformationOperation, get_filesystem_createfilemapping_synctype, \
-    PageProtection
-from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_utf16, read_duration, \
-    read_utf16_multisz, read_u64, read_filetime, read_s64
+from procmon_parser.consts import (
+    EventClass,
+    FileInformationClass,
+    FilesysemDirectoryControlOperation,
+    FilesystemDisposition,
+    FilesystemOpenResult,
+    FilesystemOperation,
+    FilesystemPriority,
+    FilesystemQueryInformationOperation,
+    FilesystemSetInformationOperation,
+    FilesystemSubOperations,
+    PageProtection,
+    ProcessOperation,
+    RegistryDisposition,
+    RegistryKeyInformationClass,
+    RegistryKeySetInformationClass,
+    RegistryKeyValueInformationClass,
+    RegistryOperation,
+    RegistryTypes,
+    get_filesystem_access_mask_string,
+    get_filesystem_createfilemapping_synctype,
+    get_filesystem_notify_change_flags,
+    get_filesysyem_create_attributes,
+    get_filesysyem_create_options,
+    get_filesysyem_create_share_mode,
+    get_filesysyem_io_flags,
+    get_ioctl_name,
+    get_registry_access_mask_string,
+)
+from procmon_parser.stream_helper import (
+    read_duration,
+    read_filetime,
+    read_s64,
+    read_u8,
+    read_u16,
+    read_u32,
+    read_u64,
+    read_utf16,
+    read_utf16_multisz,
+)
 
 PmlMetadata = namedtuple('PmlMetadata', ['str_idx', 'process_idx', 'hostname_idx', 'port_idx', 'read_pvoid',
                                          'sizeof_pvoid', 'should_get_stacktrace', 'should_get_details'])
@@ -30,13 +60,13 @@ def get_sid_string(sid):
         return ''  # Not 1 doesn't exist yet
     count = unpack('B', sid[1:2])[0]
     authority = unpack(">Q", b"\x00\x00" + sid[2:8])[0]
-    sid_string = 'S-{}-{}'.format(revision, authority)
+    sid_string = f'S-{revision}-{authority}'
     binary = sid[8:]
     if len(binary) != 4 * count:
         return ''
     for i in range(count):
         value = unpack('<L', binary[4 * i:4 * (i + 1)])[0]
-        sid_string += '-{}'.format(value)
+        sid_string += f'-{value}'
     return sid_string
 
 
@@ -77,9 +107,8 @@ def get_network_event_details(io, metadata, event, extra_detail_io):
     source_port = read_u16(io)
     dest_port = read_u16(io)
 
-    event.path = "{}:{} -> {}:{}".format(
-        metadata.hostname_idx(source_ip, is_source_ipv4), metadata.port_idx(source_port, is_tcp),
-        metadata.hostname_idx(dest_ip, is_dest_ipv4), metadata.port_idx(dest_port, is_tcp))
+    event.path = f"{metadata.hostname_idx(source_ip, is_source_ipv4)}:{metadata.port_idx(source_port, is_tcp)} -> " \
+                 f"{metadata.hostname_idx(dest_ip, is_dest_ipv4)}:{metadata.port_idx(dest_port, is_tcp)}"
 
     extra_details = read_utf16_multisz(io)
     for i in range(len(extra_details) // 2):
@@ -111,7 +140,7 @@ def get_reg_type_name(reg_type_value):
     try:
         return RegistryTypes(reg_type_value).name
     except ValueError:
-        return "<Unknown: {}>".format(reg_type_value)  # Don't know how to parse this
+        return f"<Unknown: {reg_type_value}>"  # Don't know how to parse this
 
 
 def get_registry_query_multiple_value_extra_details(metadata, event, extra_detail_io, details_info):
@@ -381,37 +410,37 @@ def get_filesystem_query_directory_details(io, metadata, event, details_io, extr
             extra_detail_io.seek(current_entry_offset + next_entry_offset, 0)
             current_entry_offset = extra_detail_io.tell()
             next_entry_offset = read_u32(extra_detail_io)
-            file_index = read_u32(extra_detail_io)
+            _file_index = read_u32(extra_detail_io)
             if file_information_class == FileInformationClass.FileNamesInformation:
                 # FILE_NAMES_INFORMATION structure
                 file_name_length = read_u32(extra_detail_io)
                 event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
                 continue
-            creation_time = read_filetime(extra_detail_io)
-            last_access_time = read_filetime(extra_detail_io)
-            last_write_time = read_filetime(extra_detail_io)
-            change_time = read_filetime(extra_detail_io)
-            end_of_file = read_u64(extra_detail_io)
-            allocation_size = read_u64(extra_detail_io)
-            file_attributes = read_u32(extra_detail_io)
+            _creation_time = read_filetime(extra_detail_io)
+            _last_access_time = read_filetime(extra_detail_io)
+            _last_write_time = read_filetime(extra_detail_io)
+            _change_time = read_filetime(extra_detail_io)
+            _end_of_file = read_u64(extra_detail_io)
+            _allocation_size = read_u64(extra_detail_io)
+            _file_attributes = read_u32(extra_detail_io)
             file_name_length = read_u32(extra_detail_io)
             if file_information_class == FileInformationClass.FileDirectoryInformation:
                 # FILE_DIRECTORY_INFORMATION structure
                 event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
                 continue
-            ea_size = read_u32(extra_detail_io)
+            _ea_size = read_u32(extra_detail_io)
             if file_information_class == FileInformationClass.FileFullDirectoryInformation:
                 # FILE_FULL_DIR_INFORMATION structure
                 event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
                 continue
             if file_information_class == FileInformationClass.FileIdFullDirectoryInformation:
                 # FILE_ID_FULL_DIR_INFORMATION structure
-                file_id = read_u64(extra_detail_io)
+                _file_id = read_u64(extra_detail_io)
                 event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
                 continue
-            short_name_length = read_u8(extra_detail_io)
+            _short_name_length = read_u8(extra_detail_io)
             extra_detail_io.seek(1, 1)  # Padding
-            short_name = extra_detail_io.read(12 * 2)
+            _short_name = extra_detail_io.read(12 * 2)
             if file_information_class == FileInformationClass.FileBothDirectoryInformation:
                 # FILE_BOTH_DIR_INFORMATION structure
                 event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
@@ -419,7 +448,7 @@ def get_filesystem_query_directory_details(io, metadata, event, details_io, extr
 
             # FILE_ID_BOTH_DIR_INFORMATION structure
             extra_detail_io.seek(2, 1)  # Padding
-            file_id = read_u64(extra_detail_io)
+            _file_id = read_u64(extra_detail_io)
             event.details[str(i)] = read_utf16(extra_detail_io, file_name_length)
             continue
 
@@ -537,7 +566,7 @@ def get_filesystem_read_write_file_details(io, metadata, event, details_io, extr
         event.details["I/O Flags"] = get_filesysyem_io_flags(io_flags)
 
     if priority != 0:
-        event.details["Priority"] = FilesystemPriority.get(priority, "0x{:x}".format(priority))
+        event.details["Priority"] = FilesystemPriority.get(priority, f"0x{priority:x}")
 
 
 def get_filesystem_ioctl_details(io, metadata, event, details_io, extra_detail_io):

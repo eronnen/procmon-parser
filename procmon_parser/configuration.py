@@ -7,7 +7,7 @@ from procmon_parser.consts import Column, RuleAction, RuleRelation
 __all__ = ['Column', 'RuleAction', 'RuleRelation', 'Rule', 'Font']
 
 
-class Rule(object):
+class Rule:
     """A rule that can be used to filter procmon events.
     """
 
@@ -28,18 +28,17 @@ class Rule(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "If {} {} \"{}\", then {}".format(self.column.name.capitalize(), self.relation.name.lower(), self.value,
-                                                 self.action.name.capitalize())
+        return f"If {self.column.name.capitalize()} {self.relation.name.lower()} \"{self.value}\", " \
+               f"then {self.action.name.capitalize()}"
 
     def __repr__(self):
-        return "Rule(Column.{}, Relation.{}, \"{}\", Action.{})".format(self.column.name, self.relation.name,
-                                                                        self.value, self.action.name)
+        return f"Rule(Column.{self.column.name}, Relation.{self.relation.name}, \"{self.value}\", Action.{self.action.name})"
 
     def __hash__(self):
         return hash((self.column.value, self.relation.value, self.value, self.action.value))
 
 
-class Font(object):
+class Font:
     """A font attributes for procmon, like in LOGFONTW structure
     see https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logfontw for documentation
     """
