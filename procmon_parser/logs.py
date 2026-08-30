@@ -2,6 +2,8 @@
 Python types that procmon logs use
 """
 
+from __future__ import annotations
+
 import binascii
 import datetime
 import enum
@@ -99,8 +101,9 @@ class Process:
 
 
 class Event:
-    def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=0,
-                 date_filetime=None, result=0, stacktrace=None, category=None, path=None, details=None):
+    def __init__(self, process: Process, tid: int, event_class: EventClass | str | int,
+                 operation: str | enum.IntEnum, duration: int, date_filetime: int, result: int = 0,
+                 stacktrace: list | None = None, category: str = "", path: str = "", details: dict | None = None):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, str) else EventClass(event_class)
@@ -136,8 +139,6 @@ class Event:
     def date(self, is_utc=True):
         """The timezone aware date of the event, in UTC or in the local timezone
         """
-        if self.date_filetime is None:
-            return None
         date = datetime.datetime.fromtimestamp(
             (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS,
             datetime.timezone.utc) + datetime.timedelta(
@@ -311,6 +312,10 @@ class PMLStructReader:
         """Return a list of all the known processes in the log file
         """
         raise NotImplementedError()
+
+    def __iter__(self):
+        for offset in self.events_offsets:
+            yield self.get_event_at_offset(offset)
 
     def __getitem__(self, index):
         if isinstance(index, slice):

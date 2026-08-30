@@ -30,6 +30,8 @@ jobs:
       run: uv sync --python ${{ matrix.python-version }}
     - name: Lint with ruff
       run: uv run --python ${{ matrix.python-version }} ruff check .
+    - name: Type check with ty
+      run: uv run --python ${{ matrix.python-version }} ty check
     - name: Test with pytest
       run: uv run --python ${{ matrix.python-version }} pytest
     - name: Coverage
