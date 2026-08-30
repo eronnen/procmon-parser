@@ -16,9 +16,7 @@ HUNDREDS_OF_NANOSECONDS = 10000000
 
 
 def _utc_from_timestamp(timestamp):
-    """Naive UTC datetime of ``timestamp``
-    """
-    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).replace(tzinfo=None)
+    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
 
 
 class PMLError(RuntimeError):
@@ -142,13 +140,14 @@ class Event(object):
         return hash((self.process.pid, self.tid, self.operation, self.date_filetime))
 
     def date(self, is_utc=True):
-        if self.date_filetime is not None:
-            from_timestamp = _utc_from_timestamp if is_utc else datetime.datetime.fromtimestamp
-            return from_timestamp(
-                (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + datetime.timedelta(
-                microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
-        else:
+        """The timezone aware date of the event, in UTC or in the local timezone
+        """
+        if self.date_filetime is None:
             return None
+        date = _utc_from_timestamp(
+            (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + datetime.timedelta(
+            microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
+        return date if is_utc else date.astimezone()
 
     @staticmethod
     def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False):
