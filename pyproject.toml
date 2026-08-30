@@ -36,7 +36,17 @@ dev = [
     "ruff",
     "ty",
     "pre-commit>=4.3.0",
+    "poethepoet",
 ]
+
+# Run with `uv run poe <task> --pml-path <path> --csv-path <path>`
+[tool.poe.tasks.manual-test]
+help = "Compare a local PML file against its CSV export"
+cmd = "python -m tests.manual_test"
+
+[tool.poe.tasks.benchmark]
+help = "Time reading a local PML file against reading its CSV export"
+cmd = "python -m tests.benchmarks"
 
 [tool.ruff]
 line-length = 127
@@ -60,10 +70,10 @@ path = "procmon_parser/__init__.py"
 packages = ["procmon_parser"]
 
 [tool.hatch.build.targets.sdist]
+# tests/resources holds 13MB of PML captures, so the tests live in git only
 include = [
     "procmon_parser",
     "docs",
-    "tests",
     "README.md",
     "LICENSE",
 ]
