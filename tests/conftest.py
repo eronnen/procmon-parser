@@ -5,15 +5,10 @@ import zlib
 from io import StringIO, BytesIO
 
 import pytest
-from six import PY2
+
+from csv import DictReader
 
 from procmon_parser import ProcmonLogsReader
-
-if PY2:
-    from unicodecsv import DictReader
-    from codecs import BOM_UTF8
-else:
-    from csv import DictReader
 
 
 RESOURCES_DIRECTORY = os.path.join(os.path.dirname(__file__), "resources")
@@ -53,15 +48,8 @@ def get_pml_log_reader(pml_logs):
 
 
 def get_csv_log_reader(csv_logs):
-    if PY2:
-        csv_stream = BytesIO(csv_logs)
-        bom = csv_stream.read(len(BOM_UTF8))
-        assert bom == BOM_UTF8, "Unexpected Procmon csv encoding"
-        csv_reader = DictReader(csv_stream, encoding='utf-8')
-    else:
-        csv_stream = StringIO(csv_logs.decode('utf-8-sig'))
-        csv_reader = DictReader(csv_stream)
-    return csv_reader
+    csv_stream = StringIO(csv_logs.decode('utf-8-sig'))
+    return DictReader(csv_stream)
 
 
 @pytest.fixture(scope='function')

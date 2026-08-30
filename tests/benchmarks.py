@@ -1,15 +1,8 @@
 import argparse
 import glob
-import io
 import timeit
 
-from six import PY2
-if PY2:
-    from unicodecsv import DictReader
-    from codecs import BOM_UTF8
-else:
-    from csv import DictReader
-
+from csv import DictReader
 from itertools import chain
 from procmon_parser import ProcmonLogsReader
 
@@ -26,19 +19,10 @@ def read_pml_logs(pml_path):
 
 
 def read_csv_logs(csv_path):
-    if PY2:
-        with io.open(csv_path, "rb") as f:
-            bom = f.read(len(BOM_UTF8))
-            assert bom == BOM_UTF8, "Unexpected Procmon csv encoding"
-            csv_reader = DictReader(f, encoding='utf-8')
-
-            for _ in csv_reader:
-                pass
-    else:
-        with open(csv_path, "r", encoding="utf-8-sig") as f:
-            csv_reader = DictReader(f)
-            for _ in csv_reader:
-                pass
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
+        csv_reader = DictReader(f)
+        for _ in csv_reader:
+            pass
 
 
 def benchmark(pml_path, csv_path):

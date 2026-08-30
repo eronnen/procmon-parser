@@ -1,5 +1,3 @@
-from six import PY2
-
 from procmon_parser.configuration import *
 from procmon_parser.configuration_format import load_configuration, loads_configuration, dump_configuration, \
     dumps_configuration
@@ -34,9 +32,6 @@ class ProcmonLogsReader(object):
         current_index = self._current_event_index
         self._current_event_index += 1
         return self[current_index]
-
-    if PY2:
-        next = __next__
 
     def __getitem__(self, index):
         return self._struct_readear[index]

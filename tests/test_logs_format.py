@@ -2,8 +2,7 @@
 import re
 from dateutil.parser import parse
 from datetime import timedelta
-from six import PY2
-from six.moves import zip_longest
+from itertools import zip_longest
 from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
 
 
@@ -121,12 +120,7 @@ def check_pml_equals_csv(csv_reader, pml_reader):
         assert pml_record is not None, "CSV reader has read more events then the PML reader after {} records.".format(i)
 
         first_event_date = first_event_date if first_event_date else pml_record.date_filetime
-        try:
-            pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date)
-        except UnicodeEncodeError:
-            if PY2:
-                continue  # problem
-            raise
+        pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date)
 
         if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>":
             if is_operation_not_unknown(pml_compatible_record["Operation"]):

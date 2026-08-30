@@ -1,6 +1,5 @@
 from construct import Enum, Adapter, IfThenElse, PaddedString, CString, GreedyString, FixedSized, GreedyRange, Bytes, \
     GreedyBytes, If, Check, CheckError
-from six import text_type, string_types
 
 
 # ===============================================================================
@@ -34,9 +33,9 @@ class UnicodeStringAdapter(Adapter):
         return obj
 
     def _encode(self, obj, context, path):
-        if not isinstance(obj, string_types):
+        if not isinstance(obj, str):
             raise TypeError("Expected string, got {}".format(type(obj)))
-        return text_type(obj)
+        return str(obj)
 
 
 def FixedUTF16String(size_func):
