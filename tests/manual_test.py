@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--pml-path", type=str, help="Path to PML file")
     parser.add_argument("--csv-path", type=str, help="Path to CSV file converted from the PML")
     parser.add_argument("--utc", action="store_true",
-                        help="The CSV was exported with UTC times instead of local times")
+                        help="The CSV time strings are in UTC instead of the local timezone")
     args = parser.parse_args()
     manual_test_pml_equals_csv_local(args.pml_path, args.csv_path, args.utc)
 

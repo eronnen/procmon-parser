@@ -117,7 +117,7 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
 def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
     """Compares the events of a PML reader against the events of a CSV export of the same log.
 
-    :param is_utc: True if the CSV was exported with UTC times, False if it was exported with local times.
+    :param is_utc: True if the CSV time strings are in UTC, False if they are in the local timezone.
     """
     first_event_date = None
     i = 0
