@@ -1,16 +1,24 @@
 from collections import OrderedDict
 from io import BytesIO
-from struct import Struct
 from ipaddress import IPv4Address, IPv6Address
+from struct import Struct
 
 from procmon_parser.consts import EventClass, EventClassOperation
-from procmon_parser.logs import PMLStructReader, Module, Process, Event, PMLError
-from procmon_parser.stream_helper import read_u8, read_u16, read_u32, read_u64, read_utf16, read_filetime, \
-    get_pvoid_reader, get_pvoid_size
+from procmon_parser.logs import Event, Module, PMLError, PMLStructReader, Process
+from procmon_parser.stream_helper import (
+    get_pvoid_reader,
+    get_pvoid_size,
+    read_filetime,
+    read_u8,
+    read_u16,
+    read_u32,
+    read_u64,
+    read_utf16,
+)
 from procmon_parser.stream_logs_detail_format import PmlMetadata, get_event_details
 
 
-class Header(object):
+class Header:
     SIZE = 0x3a8
 
     def __init__(self, io):
@@ -20,7 +28,7 @@ class Header(object):
             raise PMLError("not a Process Monitor backing file (signature missing).")
         self.version = read_u32(stream)
         if self.version not in [9]:
-            raise NotImplementedError("Not supporting PML version {}".format(self.version))
+            raise NotImplementedError(f"Not supporting PML version {self.version}")
         self.is_64bit = read_u32(stream)
         self.computer_name = read_utf16(stream, 0x20)
         self.system_root = read_utf16(stream, 0x208)
@@ -50,7 +58,8 @@ class Header(object):
         self.header_size = read_u64(stream)
         self.hosts_and_ports_tables_offset = read_u64(stream)
 
-        if self.events_offset == 0 or self.events_offsets_array_offset == 0 or self.process_table_offset == 0 or self.strings_table_offset == 0 or self.icon_table_offset == 0:
+        if self.events_offset == 0 or self.events_offsets_array_offset == 0 or self.process_table_offset == 0 \
+                or self.strings_table_offset == 0 or self.icon_table_offset == 0:
             raise PMLError("PML was not closed cleanly during capture and is corrupt.")
 
         if self.header_size != self.SIZE or self.hosts_and_ports_tables_offset == 0:
@@ -59,7 +68,7 @@ class Header(object):
 
 class EventOffsetsArray(list):
     def __init__(self, io, total_size, number_of_events):
-        super(EventOffsetsArray, self).__init__()
+        super().__init__()
         stream = BytesIO(io.read(total_size))
         offsets = [0] * number_of_events
         for i in range(number_of_events):
@@ -70,7 +79,7 @@ class EventOffsetsArray(list):
 
 class StringsTable(list):
     def __init__(self, io):
-        super(StringsTable, self).__init__()
+        super().__init__()
         string_table_start = io.tell()
         number_of_strings = read_u32(io)
 
@@ -86,7 +95,7 @@ class StringsTable(list):
 
 class ProcessTable(dict):
     def __init__(self, io, read_pvoid, strings_table):
-        super(ProcessTable, self).__init__()
+        super().__init__()
         self._read_pvoid = read_pvoid
         self._strings_table = strings_table
         process_table_start = io.tell()
@@ -126,8 +135,8 @@ class ProcessTable(dict):
         version = self._strings_table[read_u32(stream)]
         description = self._strings_table[read_u32(stream)]
 
-        icon_index_small = read_u32(stream)
-        icon_index_big = read_u32(stream)
+        _icon_index_small = read_u32(stream)
+        _icon_index_big = read_u32(stream)
         _ = self._read_pvoid(stream)  # Unknown field
         number_of_modules = read_u32(stream)
         modules = [self.__read_module(stream) for _ in range(number_of_modules)]
@@ -154,7 +163,7 @@ class ProcessTable(dict):
 
 class HostnamesTable(dict):
     def __init__(self, io):
-        super(HostnamesTable, self).__init__()
+        super().__init__()
         number_of_hostnames = read_u32(io)
         for _ in range(number_of_hostnames):
             ip = io.read(16)
@@ -165,7 +174,7 @@ class HostnamesTable(dict):
 
 class PortsTable(dict):
     def __init__(self, io):
-        super(PortsTable, self).__init__()
+        super().__init__()
         number_of_ports = read_u32(io)
         for _ in range(number_of_ports):
             port_value = read_u16(io)
@@ -264,7 +273,7 @@ class PMLStreamReader(PMLStructReader):
             return str(IPv4Address(hostname_ip[:4]))
 
         # remove leading zeroes in ipv6 like procmon does...
-        return ':'.join(['{:x}'.format(int(i, 16)) for i in IPv6Address(hostname_ip).exploded.split(':')])
+        return ':'.join([f'{int(i, 16):x}' for i in IPv6Address(hostname_ip).exploded.split(':')])
 
     def __port_idx(self, port, is_tcp):
         """Get the actual port name from port value

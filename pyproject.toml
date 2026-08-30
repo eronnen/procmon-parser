@@ -34,8 +34,14 @@ dev = [
     "pytest",
     "python-dateutil",
     "coverage",
-    "flake8",
+    "ruff",
 ]
+
+[tool.ruff]
+line-length = 127
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
 
 [tool.pytest.ini_options]
 filterwarnings = ["error"]

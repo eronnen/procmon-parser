@@ -1,9 +1,9 @@
 import argparse
 import glob
 import timeit
-
 from csv import DictReader
 from itertools import chain
+
 from procmon_parser import ProcmonLogsReader
 
 
@@ -11,7 +11,7 @@ def read_pml_logs(pml_path):
     """Reads a pml, and linked PML files if exist
     """
     pml_readers = []
-    for logfile_path in [pml_path] + glob.glob("{0}-*.{1}".format(*pml_path.rsplit('.', 1))):
+    for logfile_path in [pml_path] + glob.glob("{}-*.{}".format(*pml_path.rsplit('.', 1))):
         pml_readers.append(ProcmonLogsReader(open(logfile_path, "rb"), should_get_stacktrace=False))
     pml_reader = chain(*pml_readers)
     for _ in pml_reader:
@@ -19,7 +19,7 @@ def read_pml_logs(pml_path):
 
 
 def read_csv_logs(csv_path):
-    with open(csv_path, "r", encoding="utf-8-sig") as f:
+    with open(csv_path, encoding="utf-8-sig") as f:
         csv_reader = DictReader(f)
         for _ in csv_reader:
             pass
@@ -27,8 +27,8 @@ def read_csv_logs(csv_path):
 
 def benchmark(pml_path, csv_path):
     setup = "from __main__ import read_pml_logs, read_csv_logs"
-    print(timeit.timeit("read_pml_logs(\"{}\")".format(pml_path).replace('\\', '\\\\'), setup=setup, number=5))
-    print(timeit.timeit("read_csv_logs(\"{}\")".format(csv_path).replace('\\', '\\\\'), setup=setup, number=5))
+    print(timeit.timeit(f"read_pml_logs(\"{pml_path}\")".replace('\\', '\\\\'), setup=setup, number=5))
+    print(timeit.timeit(f"read_csv_logs(\"{csv_path}\")".replace('\\', '\\\\'), setup=setup, number=5))
 
 
 def main():

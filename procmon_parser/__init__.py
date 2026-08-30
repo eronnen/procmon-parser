@@ -1,16 +1,21 @@
-from procmon_parser.configuration import *
-from procmon_parser.configuration_format import load_configuration, loads_configuration, dump_configuration, \
-    dumps_configuration
-from procmon_parser.logs import *
+from procmon_parser.configuration import Column, Font, Rule, RuleAction, RuleRelation
+from procmon_parser.configuration_format import (
+    dump_configuration,
+    dumps_configuration,
+    load_configuration,
+    loads_configuration,
+)
+from procmon_parser.logs import Event, Module, PMLError, PMLStructReader, Process
 from procmon_parser.stream_logs_format import PMLStreamReader
 
 __all__ = [
-    'ProcmonLogsReader', 'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
-    'Rule', 'Column', 'RuleAction', 'RuleRelation', 'PMLError'
+    'ProcmonLogsReader', 'PMLStreamReader', 'PMLStructReader', 'read_all_events_from_pml',
+    'load_configuration', 'loads_configuration', 'dump_configuration', 'dumps_configuration',
+    'Rule', 'Column', 'RuleAction', 'RuleRelation', 'Font', 'PMLError', 'Event', 'Module', 'Process'
 ]
 
 
-class ProcmonLogsReader(object):
+class ProcmonLogsReader:
     """Reads procmon logs from a stream which in the PML format
     """
 
