@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.13"]
+        python-version: ["3.8", "3.13", "3.14"]
 
     steps:
     - uses: actions/checkout@v4
@@ -31,12 +31,12 @@ jobs:
     - name: Test with pytest
       run: uv run --python ${{ matrix.python-version }} pytest
     - name: Coverage
-      if: ${{ matrix.python-version == '3.13' }}
+      if: ${{ matrix.python-version == '3.14' }}
       run: |
         uv run coverage run --source=procmon_parser/ -m pytest .
         uv run coverage lcov
     - name: Coveralls
-      if: ${{ matrix.python-version == '3.13' }}
+      if: ${{ matrix.python-version == '3.14' }}
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
