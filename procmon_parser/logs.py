@@ -6,8 +6,6 @@ import binascii
 import datetime
 import enum
 
-from six import string_types
-
 from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation, ColumnToOriginalName
 
 __all__ = ['PMLError', 'Module', 'Process', 'Event', 'PMLStructReader']
@@ -106,7 +104,7 @@ class Event(object):
                  date_filetime=None, result=0, stacktrace=None, category=None, path=None, details=None):
         self.process = process
         self.tid = tid
-        self.event_class = EventClass[event_class] if isinstance(event_class, string_types) else EventClass(event_class)
+        self.event_class = EventClass[event_class] if isinstance(event_class, str) else EventClass(event_class)
         self.operation = operation.name if isinstance(operation, enum.IntEnum) else operation
         self.date_filetime = date_filetime
         self.result = result
@@ -235,7 +233,7 @@ class Event(object):
                 details["Data"] = ''  # Procmon doesnt print qword in csv, I don't know why
             elif details.get("Type", '') == "REG_MULTI_SZ" and "Data" in details:
                 details["Data"] = ', '.join(details["Data"])
-            elif "Data" in details and isinstance(details["Data"], string_types):
+            elif "Data" in details and isinstance(details["Data"], str):
                 details["Data"] = "\n;".join(details["Data"].split('\r\n'))  # They add ; before a new line
 
             if self.operation == "RegQueryValue" and "Name" in details:
