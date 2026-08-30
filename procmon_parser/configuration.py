@@ -2,8 +2,6 @@
 Python types that procmon configuration uses
 """
 
-from six import string_types
-
 from procmon_parser.consts import Column, RuleAction, RuleRelation
 
 __all__ = ['Column', 'RuleAction', 'RuleRelation', 'Rule', 'Font']
@@ -14,12 +12,12 @@ class Rule(object):
     """
 
     def __init__(self, column=Column.ARCHITECTURE, relation=RuleRelation.IS, value="64-bit", action=RuleAction.INCLUDE):
-        self.column = Column[column.upper()] if isinstance(column, string_types) else Column(column)
-        self.relation = RuleRelation[relation.upper()] if isinstance(relation, string_types) else RuleRelation(relation)
-        if not isinstance(value, string_types):
+        self.column = Column[column.upper()] if isinstance(column, str) else Column(column)
+        self.relation = RuleRelation[relation.upper()] if isinstance(relation, str) else RuleRelation(relation)
+        if not isinstance(value, str):
             raise TypeError("Filter value must be a string")
         self.value = value
-        self.action = RuleAction[action.upper()] if isinstance(action, string_types) else RuleAction(action)
+        self.action = RuleAction[action.upper()] if isinstance(action, str) else RuleAction(action)
 
     def __eq__(self, other):
         if type(other) is type(self):

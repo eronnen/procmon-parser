@@ -209,7 +209,7 @@ def loads_configuration(data):
 
 def dump_configuration(records, stream):
     """Serialize ``records``, a dictionary of procmon configuration records, to ``stream`` (a
-    ``.write()``-supporting file-like object that returns the length written (for python2 use the io module)),
+    ``.write()``-supporting file-like object that returns the length written),
     in the format of PMC.
     """
     for name, data in records.items():

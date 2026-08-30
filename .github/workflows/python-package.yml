@@ -1,4 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# This workflow will install Python dependencies with uv, and run tests with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
 name: Python package
@@ -16,38 +16,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["2.7", "3.11"]
+        python-version: ["3.8", "3.13"]
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        enable-cache: true
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
     - name: Install dependencies
-      run: |
-        if [[ ${{ matrix.python-version }} == 2.7 ]]; then pip install unicodecsv; fi
-        python -m pip install --upgrade pip
-        python -m pip install flake8 pytest
-        python -m pip install python-dateutil
-        python -m pip install .
-    #- name: Lint with flake8
-    #  run: |
-    #    # stop the build if there are Python syntax errors or undefined names
-    #    flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-    #    # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-    #    flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      run: uv sync --python ${{ matrix.python-version }}
     - name: Test with pytest
-      run: |
-        pytest
+      run: uv run --python ${{ matrix.python-version }} pytest
     - name: Coverage
-      if: ${{ matrix.python-version != '2.7' }}
+      if: ${{ matrix.python-version == '3.13' }}
       run: |
-        python -m pip install coverage
-        coverage run --source=procmon_parser/ -m pytest .
-        coverage lcov
+        uv run coverage run --source=procmon_parser/ -m pytest .
+        uv run coverage lcov
     - name: Coveralls
-      if: ${{ matrix.python-version != '2.7' }}
+      if: ${{ matrix.python-version == '3.13' }}
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
