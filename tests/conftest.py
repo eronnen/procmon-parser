@@ -2,14 +2,12 @@ import binascii
 import os
 import time
 import zlib
-from io import StringIO, BytesIO
+from csv import DictReader
+from io import BytesIO, StringIO
 
 import pytest
 
-from csv import DictReader
-
 from procmon_parser import ProcmonLogsReader
-
 
 RESOURCES_DIRECTORY = os.path.join(os.path.dirname(__file__), "resources")
 
@@ -43,7 +41,7 @@ def get_pml_log_reader(pml_logs):
     pml_stream = BytesIO(pml_logs)
     start = time.time()
     pml_reader = ProcmonLogsReader(pml_stream)
-    print("\nLoading PML reader took {} seconds\n".format(time.time() - start))
+    print(f"\nLoading PML reader took {time.time() - start} seconds\n")
     return pml_reader
 
 

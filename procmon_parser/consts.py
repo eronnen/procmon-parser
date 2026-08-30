@@ -489,7 +489,7 @@ _ErrorCodeMessages = {
 
 
 def get_error_message(error_value):
-    return _ErrorCodeMessages.get(error_value, "0x{:X}".format(error_value))
+    return _ErrorCodeMessages.get(error_value, f"0x{error_value:X}")
 
 
 def _get_mask_string(mask, mask_strings, seperator):
@@ -574,7 +574,7 @@ def _get_access_mask_string(access_mask, mappings, access_strings):
 
     string = _get_mask_string(access_mask, access_strings, ", ")
     if string == '':
-        return "None 0x{:x}".format(access_mask)
+        return f"None 0x{access_mask:x}"
     return string
 
 
@@ -1043,8 +1043,7 @@ def get_ioctl_name(ioctl):
     try:
         return _IoctlConsts[ioctl]
     except KeyError:
-        return "0x{:x} (Device:0x{:x} Function:{} Method: {})".format(
-            ioctl, ioctl >> 0x10, (ioctl >> 2) & 0xfff, ioctl & 3)
+        return f"0x{ioctl:x} (Device:0x{ioctl >> 0x10:x} Function:{(ioctl >> 2) & 0xfff} Method: {ioctl & 3})"
 
 
 class FileInformationClass(enum.IntEnum):
@@ -1157,7 +1156,7 @@ FileSystemCreateFileMappingSyncType = OrderedDict([
 
 def get_filesystem_createfilemapping_synctype(synctype_value):
     # type: (int) -> str
-    return FileSystemCreateFileMappingSyncType.get(synctype_value, "Unknown: {:#x}".format(synctype_value))
+    return FileSystemCreateFileMappingSyncType.get(synctype_value, f"Unknown: {synctype_value:#x}")
 
 
 class PageProtection(enum.IntEnum):

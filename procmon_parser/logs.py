@@ -6,7 +6,7 @@ import binascii
 import datetime
 import enum
 
-from procmon_parser.consts import Column, EventClass, get_error_message, ProcessOperation, ColumnToOriginalName
+from procmon_parser.consts import Column, ColumnToOriginalName, EventClass, ProcessOperation, get_error_message
 
 __all__ = ['PMLError', 'Module', 'Process', 'Event', 'PMLStructReader']
 
@@ -19,7 +19,7 @@ class PMLError(RuntimeError):
     pass
 
 
-class Module(object):
+class Module:
     """Information about a loaded module in a process or in the kernel
     """
 
@@ -42,18 +42,17 @@ class Module(object):
 
     def __str__(self):
         return "\"{}\", address={}, size={}".format(
-            self.path, "0x{:x}".format(self.base_address), "0x{:x}".format(self.size))
+            self.path, f"0x{self.base_address:x}", f"0x{self.size:x}")
 
     def __repr__(self):
-        return "Module({}, {}, \"{}\", \"{}\", \"{}\", \"{}\", {})" \
-            .format(self.base_address, self.size, self.path, self.version, self.company,
-                    self.description, self.timestamp)
+        return f"Module({self.base_address}, {self.size}, \"{self.path}\", \"{self.version}\", " \
+               f"\"{self.company}\", \"{self.description}\", {self.timestamp})"
 
     def __hash__(self):
         return hash((self.base_address, self.size, self.path, self.timestamp))
 
 
-class Process(object):
+class Process:
     """Information about a process in the system
     """
 
@@ -87,19 +86,19 @@ class Process(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "\"{}\", {}".format(self.image_path, self.pid)
+        return f"\"{self.image_path}\", {self.pid}"
 
     def __repr__(self):
-        return "Process({}, {}, {}, {}, {}, \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\", \"{}\")" \
-            .format(self.pid, self.parent_pid, self.authentication_id, self.session, self.virtualized,
-                    self.is_process_64bit, self.integrity, self.user, self.process_name, self.image_path,
-                    self.command_line, self.company, self.version, self.description)
+        return f"Process({self.pid}, {self.parent_pid}, {self.authentication_id}, {self.session}, " \
+               f"{self.virtualized}, \"{self.is_process_64bit}\", \"{self.integrity}\", \"{self.user}\", " \
+               f"\"{self.process_name}\", \"{self.image_path}\", \"{self.command_line}\", \"{self.company}\", " \
+               f"\"{self.version}\", \"{self.description}\")"
 
     def __hash__(self):
         return hash((self.pid, self.parent_pid, self.image_path, self.command_line, self.start_time, self.end_time))
 
 
-class Event(object):
+class Event:
     def __init__(self, process=None, tid=0, event_class=None, operation=None, duration=0,
                  date_filetime=None, result=0, stacktrace=None, category=None, path=None, details=None):
         self.process = process
@@ -123,14 +122,13 @@ class Event(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "Process Name={}, Pid={}, Operation={}, Path=\"{}\", Time={}".format(
-            self.process.process_name, self.process.pid, self.operation, self.path,
-            self._strftime_date(self.date_filetime, True, True))
+        return f"Process Name={self.process.process_name}, Pid={self.process.pid}, Operation={self.operation}, " \
+               f"Path=\"{self.path}\", Time={self._strftime_date(self.date_filetime, True, True)}"
 
     def __repr__(self):
-        return "Event({}, {}, \"{}\", \"{}\", {}, {}, {}, \"{}\", \"{}\", {})" \
-            .format(self.process, self.tid, self.event_class.name, self.operation, self.duration,
-                    self.date_filetime, self.result, self.category, self.path, self.details)
+        return f"Event({self.process}, {self.tid}, \"{self.event_class.name}\", \"{self.operation}\", " \
+               f"{self.duration}, {self.date_filetime}, {self.result}, \"{self.category}\", \"{self.path}\", " \
+               f"{self.details})"
 
     def __hash__(self):
         return hash((self.process.pid, self.tid, self.operation, self.date_filetime))
@@ -167,13 +165,13 @@ class Event(object):
     def _strftime_relative_time(delta_hundred_nanosecs):
         secs = delta_hundred_nanosecs // HUNDREDS_OF_NANOSECONDS
         hundred_nanosecs = delta_hundred_nanosecs % HUNDREDS_OF_NANOSECONDS
-        return "{:02d}:{:02d}:{:02d}.{:07d}".format(secs // 3600, (secs // 60) % 60, secs % 60, hundred_nanosecs)
+        return f"{secs // 3600:02d}:{(secs // 60) % 60:02d}:{secs % 60:02d}.{hundred_nanosecs:07d}"
 
     @staticmethod
     def _strftime_duration(duration_hundred_nanosecs):
         secs = duration_hundred_nanosecs // HUNDREDS_OF_NANOSECONDS
         hundred_nanosecs = duration_hundred_nanosecs % HUNDREDS_OF_NANOSECONDS
-        return "{}.{:07d}".format(secs, hundred_nanosecs)
+        return f"{secs}.{hundred_nanosecs:07d}"
 
     @staticmethod
     def _get_bool_str(b):
@@ -210,12 +208,12 @@ class Event(object):
             commas_formatted_keys = ["Length", "SubKeys", "Values", "Index"]
             for key in commas_formatted_keys:
                 if key in details:
-                    details[key] = '{:,}'.format(details[key])
+                    details[key] = f'{details[key]:,}'
 
             hexa_formatted_keys = ["HandleTags", "UserFlags", "Wow64Flags"]
             for key in hexa_formatted_keys:
                 if key in details:
-                    details[key] = "0x{:x}".format(details[key])
+                    details[key] = f"0x{details[key]:x}"
 
             removed_keys = ["TitleIndex", "MaxNameLen", "MaxValueNameLen", "MaxValueDataLen",
                             "ClassOffset", "ClassLength", "MaxClassLen"]
@@ -246,10 +244,10 @@ class Event(object):
         elif EventClass.File_System == self.event_class:
             commas_formatted_keys = ["AllocationSize", "Offset", "Length"]
             for key in commas_formatted_keys:
-                if key in details and int == type(details[key]):
-                    details[key] = '{:,}'.format(details[key])
+                if key in details and type(details[key]) is int:
+                    details[key] = f'{details[key]:,}'
 
-        return ", ".join("{}: {}".format(k, v) for k, v in details.items())
+        return ", ".join(f"{k}: {v}" for k, v in details.items())
 
     def get_compatible_csv_info(self, first_event_date_filetime=None):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
@@ -278,8 +276,7 @@ class Event(object):
             Column.VERSION: self.process.version,
             Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
             Column.AUTHENTICATION_ID:
-                "{:08x}:{:08x}".format(self.process.authentication_id >> 32,
-                                       self.process.authentication_id & 0xFFFFFFFF),
+                f"{self.process.authentication_id >> 32:08x}:{self.process.authentication_id & 0xFFFFFFFF:08x}",
             Column.VIRTUALIZED: Event._get_bool_str(self.process.virtualized),
             Column.INTEGRITY: self.process.integrity,
             Column.CATEGORY: self.category,
@@ -294,7 +291,7 @@ class Event(object):
         return compatible_record
 
 
-class PMLStructReader(object):
+class PMLStructReader:
     @property
     def header(self):
         raise NotImplementedError()
@@ -334,10 +331,10 @@ class PMLStructReader(object):
 
         windows_name = windows_names[(self.header.windows_major_number, self.header.windows_minor_number)]
         if self.header.service_pack_name:
-            windows_name += ", {}".format(self.header.service_pack_name)
+            windows_name += f", {self.header.service_pack_name}"
 
-        return "{} (build {}.{})".format(windows_name, self.header.windows_build_number,
-                                         self.header.windows_build_number_after_decimal_point)
+        return f"{windows_name} (build {self.header.windows_build_number}." \
+               f"{self.header.windows_build_number_after_decimal_point})"
 
     def system_details(self):
         """Return the system details of the computer which captured the logs (like Tools -> System Details in Procmon)
@@ -347,6 +344,6 @@ class PMLStructReader(object):
             "Operating System": self._get_os_name(),
             "System Root": self.header.system_root,
             "Logical Processors": self.header.number_of_logical_processors,
-            "Memory (RAM)": "{} GB".format((self.header.ram_memory_size / (1024.0 ** 3)) // 0.01 / 100),
+            "Memory (RAM)": f"{(self.header.ram_memory_size / (1024.0 ** 3)) // 0.01 / 100} GB",
             "System Type": "64-bit" if self.header.is_64bit else "32-bit"
         }

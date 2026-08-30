@@ -1,10 +1,11 @@
 
 import re
-from dateutil.parser import parse
 from datetime import timedelta, timezone
 from itertools import zip_longest
-from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
 
+from dateutil.parser import parse
+
+from procmon_parser.consts import Column, ColumnToOriginalName, NetworkOperation, ProcessOperation, RegistryOperation
 
 SUPPORTED_COLUMNS = [
     Column.TIME_OF_DAY,
@@ -116,8 +117,8 @@ def check_pml_equals_csv(csv_reader, pml_reader):
     first_event_date = None
     i = 0
     for i, (csv_record, pml_record) in enumerate(zip_longest(csv_reader, pml_reader)):
-        assert csv_record is not None, "PML reader has read more events then the CSV reader after {} records.".format(i)
-        assert pml_record is not None, "CSV reader has read more events then the PML reader after {} records.".format(i)
+        assert csv_record is not None, f"PML reader has read more events then the CSV reader after {i} records."
+        assert pml_record is not None, f"CSV reader has read more events then the PML reader after {i} records."
 
         first_event_date = first_event_date if first_event_date else pml_record.date_filetime
         pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date)
@@ -132,8 +133,8 @@ def check_pml_equals_csv(csv_reader, pml_reader):
             csv_value = csv_record[column_name]
             if pml_value != csv_value:
                 raise AssertionError(
-                    "Event {}, Column {}: PMl=\"{}\", CSV=\"{}\".\n PML Event: {}\nCSV Event: {}".format(
-                        i+1, column_name, pml_value, csv_value, repr(pml_record), csv_record))
+                    f"Event {i + 1}, Column {column_name}: PMl=\"{pml_value}\", CSV=\"{csv_value}\".\n"
+                    f" PML Event: {pml_record!r}\nCSV Event: {csv_record}")
 
         for column in PARTIAL_SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]
@@ -161,16 +162,15 @@ def check_pml_equals_csv(csv_reader, pml_reader):
                             if detail.startswith("FileInformationClass: "):
                                 if idx == 2 and str(idx) in pml_record.details:
                                     # They stupid
-                                    csv_detail.append("{}: {}".format(str(idx), pml_record.details[str(idx)]))
+                                    csv_detail.append(f"{str(idx)}: {pml_record.details[str(idx)]}")
                             else:
                                 csv_detail.append(detail)
 
                         csv_value = ", ".join(csv_detail)
                 if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
                                                                              column_name, pml_value, csv_value, i):
-                    print("In Event {}".format(repr(pml_record)))
-                    raise AssertionError("Event {}, Column {}: PMl=\"{}\", CSV=\"{}\"".format(
-                        i + 1, column_name, pml_value, csv_value))
+                    print(f"In Event {pml_record!r}")
+                    raise AssertionError(f"Event {i + 1}, Column {column_name}: PMl=\"{pml_value}\", CSV=\"{csv_value}\"")
 
 
 def test_pml_equals_csv_32bit(csv_reader_windows7_32bit, pml_reader_windows7_32bit):

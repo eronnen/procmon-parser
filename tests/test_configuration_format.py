@@ -1,7 +1,8 @@
 import pytest
-from procmon_parser import loads_configuration, dumps_configuration
+
+from procmon_parser import dumps_configuration, loads_configuration
 from procmon_parser.configuration import Rule
-from procmon_parser.consts import Column, RuleRelation, RuleAction
+from procmon_parser.consts import Column, RuleAction, RuleRelation
 
 
 def test_parse_built_configuration_sanity():
@@ -23,7 +24,7 @@ def test_parse_built_configuration_sanity():
 
 def test_build_nonexistent_config_option():
     config = {
-        u"FilterRules2": b"datadatadatadatadatadatadatadata"
+        "FilterRules2": b"datadatadatadatadatadatadatadata"
     }
 
     raw_config = dumps_configuration(config)
@@ -33,11 +34,11 @@ def test_build_nonexistent_config_option():
 
 def test_build_mistyped_rule():
     config = {
-        u"FilterRules": [
+        "FilterRules": [
             Rule('Path', 'contains', '1337', True),
             Rule('pid', 'is_not', '1338', True),
             Rule('Event_class', 'is', 'Profiling', False),
-            u"SomeString",
+            "SomeString",
         ]
     }
     with pytest.raises(AttributeError):
@@ -62,10 +63,10 @@ def test_build_mistyped_path_config_option():
 
 def test_rule_equals():
     r1 = Rule('Path', 'contains', '1337', True)
-    r2 = Rule('Path', 'contains', u'1337', True)
+    r2 = Rule('Path', 'contains', '1337', True)
     assert r1 == r2
 
-    r3 = Rule('Path', 'contains', u'1337', False)
+    r3 = Rule('Path', 'contains', '1337', False)
     assert not r1 == r3
     assert r1 != r3
 
