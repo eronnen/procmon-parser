@@ -67,7 +67,7 @@ def test_rule_equals():
     assert r1 == r2
 
     r3 = Rule('Path', 'contains', '1337', False)
-    assert not r1 == r3
+    assert not r1 == r3  # noqa: SIM201 - exercises __eq__ and not __ne__
     assert r1 != r3
 
 
@@ -95,6 +95,6 @@ def test_parse_config_paths_sanity(raw_config_full):
 
 def test_parse_filter_rules_sanity(raw_config_full):
     config = loads_configuration(raw_config_full)
-    assert 0 == len(config["HighlightRules"]), "HighlightRules should be an empty list"
-    assert 25 == len(config["FilterRules"]), "Unexpected FilterRules length"
+    assert len(config["HighlightRules"]) == 0, "HighlightRules should be an empty list"
+    assert len(config["FilterRules"]) == 25, "Unexpected FilterRules length"
     assert config["FilterRules"][0] == Rule(Column.PROCESS_NAME, RuleRelation.IS, "python.exe", RuleAction.INCLUDE)

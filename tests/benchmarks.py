@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import glob
 import timeit
 from csv import DictReader
@@ -10,12 +11,14 @@ from procmon_parser import ProcmonLogsReader
 def read_pml_logs(pml_path):
     """Reads a pml, and linked PML files if exist
     """
-    pml_readers = []
-    for logfile_path in [pml_path] + glob.glob("{}-*.{}".format(*pml_path.rsplit('.', 1))):
-        pml_readers.append(ProcmonLogsReader(open(logfile_path, "rb"), should_get_stacktrace=False))
-    pml_reader = chain(*pml_readers)
-    for _ in pml_reader:
-        pass
+    logfile_paths = [pml_path, *glob.glob("{}-*.{}".format(*pml_path.rsplit('.', 1)))]
+    with contextlib.ExitStack() as stack:
+        pml_readers = [
+            ProcmonLogsReader(stack.enter_context(open(logfile_path, "rb")), should_get_stacktrace=False)
+            for logfile_path in logfile_paths
+        ]
+        for _ in chain(*pml_readers):
+            pass
 
 
 def read_csv_logs(csv_path):

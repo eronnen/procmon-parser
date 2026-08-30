@@ -1,10 +1,11 @@
 [project]
 name = "procmon-parser"
-version = "0.3.13"
+dynamic = ["version"]
 description = "Parser to Procmon configuration and log files formats"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Ely Ronnen", email = "elyronnen@gmail.com" },
 ]
@@ -20,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
@@ -34,13 +34,16 @@ dev = [
     "python-dateutil",
     "coverage",
     "ruff",
+    "pre-commit>=4.3.0",
 ]
 
 [tool.ruff]
 line-length = 127
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+# the parsers spell out every binary case explicitly, even when branches share a body
+ignore = ["SIM114"]
 
 [tool.pytest.ini_options]
 filterwarnings = ["error"]
@@ -48,6 +51,9 @@ filterwarnings = ["error"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "procmon_parser/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["procmon_parser"]

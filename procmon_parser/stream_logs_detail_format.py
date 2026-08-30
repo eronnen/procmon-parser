@@ -264,7 +264,7 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
 
 def get_registry_open_or_create_key_extra_details(metadata, event, extra_detail_io, details_info):
     event.category = "Read"
-    if 0 == details_info["desired_access"]:
+    if details_info["desired_access"] == 0:
         return
 
     event.details["Desired Access"] = get_registry_access_mask_string(details_info["desired_access"])
@@ -331,7 +331,7 @@ RegistryExtraDetailsHandler = {
 
 def get_registry_event_details(io, metadata, event, extra_detail_io):
     path_info = read_detail_string_info(io)
-    details_info = dict()  # information that is needed by the extra details structure
+    details_info = {}  # information that is needed by the extra details structure
 
     if event.operation in [RegistryOperation.RegLoadKey.name, RegistryOperation.RegRenameKey.name]:
         details_info["new_path_info"] = read_detail_string_info(io)
@@ -654,7 +654,7 @@ def get_filesystem_event_details(io, metadata, event, extra_detail_io):
     io.seek(0x3, 1)  # padding
 
     # fix operation name if there is more specific sub operation
-    if 0 != sub_operation and FilesystemOperation[event.operation] in FilesystemSubOperations:
+    if sub_operation != 0 and FilesystemOperation[event.operation] in FilesystemSubOperations:
         try:
             event.operation = FilesystemSubOperations[FilesystemOperation[event.operation]](sub_operation).name
         except ValueError:
