@@ -636,7 +636,7 @@ FilesystemCreateAttributes = OrderedDict([
 
 
 def get_filesysyem_create_attributes(create_mask):
-    if 0 == create_mask:
+    if create_mask == 0:
         return "n/a"
     return _get_mask_string(create_mask, FilesystemCreateAttributes, "")
 
@@ -649,7 +649,7 @@ FilesystemCreateShareMode = OrderedDict([
 
 
 def get_filesysyem_create_share_mode(share_mask):
-    if 0 == share_mask:
+    if share_mask == 0:
         return "None"
     return _get_mask_string(share_mask, FilesystemCreateShareMode, ", ")
 

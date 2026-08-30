@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import glob
 import time
 from csv import DictReader
@@ -10,16 +11,17 @@ from tests.test_logs_format import check_pml_equals_csv
 
 def manual_test_pml_equals_csv_local(pml_path, csv_path):
     start = time.time()
-    csv_reader_local = DictReader(open(csv_path, encoding="utf-8-sig"))
-    pml_readers = []
-    for logfile_path in [pml_path] + glob.glob("{}-*.{}".format(*pml_path.rsplit('.', 1))):
-        pml_readers.append(ProcmonLogsReader(open(logfile_path, "rb")))
+    logfile_paths = [pml_path, *glob.glob("{}-*.{}".format(*pml_path.rsplit('.', 1)))]
+    with contextlib.ExitStack() as stack:
+        csv_reader_local = DictReader(stack.enter_context(open(csv_path, encoding="utf-8-sig")))
+        pml_readers = [
+            ProcmonLogsReader(stack.enter_context(open(logfile_path, "rb"))) for logfile_path in logfile_paths
+        ]
 
-    loaded = time.time()
-    print(f"Loading readers took {loaded - start} seconds")
-    pml_reader = chain(*pml_readers)
-    check_pml_equals_csv(csv_reader_local, pml_reader)
-    print(f"Reading events took {time.time() - loaded} seconds")
+        loaded = time.time()
+        print(f"Loading readers took {loaded - start} seconds")
+        check_pml_equals_csv(csv_reader_local, chain(*pml_readers))
+        print(f"Reading events took {time.time() - loaded} seconds")
 
 
 def main():

@@ -8,7 +8,7 @@ import enum
 
 from procmon_parser.consts import Column, ColumnToOriginalName, EventClass, ProcessOperation, get_error_message
 
-__all__ = ['PMLError', 'Module', 'Process', 'Event', 'PMLStructReader']
+__all__ = ['Event', 'Module', 'PMLError', 'PMLStructReader', 'Process']
 
 
 EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
