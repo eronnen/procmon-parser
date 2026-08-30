@@ -5,9 +5,9 @@ name: Python package
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
         uv run coverage lcov
     - name: Coveralls
       if: ${{ matrix.python-version == '3.14' }}
-      uses: coverallsapp/github-action@master
+      uses: coverallsapp/github-action@main
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         path-to-lcov: coverage.lcov
