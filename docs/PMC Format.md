@@ -2,7 +2,7 @@
 
 PMC (Process Monitor Configuration file) is the file format which Procmon uses to store exported configurations in order to import them later from another instance of Procmon. There is no official documentation of this format so everything here was reverse engineered, and there are a few unknown fields.
 
-The format is pretty simple - it's just an array of configuration options. Each configuration option is represented by
+The format is pretty simple - it's just an array of configuration options. Each configuration option is represented by 
 a record structure, that contains the name of the option and its value. The record has the following layout:
 
 **CONFIGURATION_RECORD**
@@ -31,9 +31,9 @@ In the default configuration of Procmon, there are 20 configuration options:
 * `Autoscroll` (Uint32) - whether to scroll automatically for new events.
 * `HistoryDepth` (Uint32)- limits the number of events that Procmon writes to the log file - in millions.
 * `Profiling` (Uint32) - whether to generate thread profiling event every 1 second.
-* `DestructiveFilter` (Uint32) - whether to not write events that the current filters exclude to the log file.
+* `DestructiveFilter` (Uint32) - whether to not write events that the current filters exclude to the log file.   
 * `AlwaysOnTop` (Uint32) - whether to make the GUI window remain on top of other windows.
-* `ResolveAddresses` (Uint32) -
+* `ResolveAddresses` (Uint32) -  
 * `SourcePath` (Wchar_t[]) - path to look for sources of the symbols.
 * `SymbolPath` (Wchar_t[]) - symbol server path.
 * `FilterRules` (FILTER_RULES) - a list of rules to filter events in or out.
@@ -62,3 +62,4 @@ Each filter rule contains the column type it checks  (like "PID", "Path", ...), 
 | Wchar_t[] | The value                                                                                               |
 | Uint32    | The value as integer                                                                                    |
 | Uint32    | Unknown                                                                                                 |
+
