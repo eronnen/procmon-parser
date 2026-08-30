@@ -1,7 +1,7 @@
 
 import re
 from dateutil.parser import parse
-from datetime import timedelta
+from datetime import timedelta, timezone
 from itertools import zip_longest
 from procmon_parser.consts import Column, ColumnToOriginalName, RegistryOperation, NetworkOperation, ProcessOperation
 
@@ -218,5 +218,6 @@ def test_windows_10_64bit_system_details(pml_reader_windows10_64bit):
 def test_date_parsing(csv_reader_windows10_64bit, pml_reader_windows10_64bit):
     pml_date1 = next(pml_reader_windows10_64bit).date()
     csv_event1 = next(csv_reader_windows10_64bit)
-    csv_date1 = parse(csv_event1["Date & Time"]) + timedelta(microseconds=parse(csv_event1["Time of Day"]).microsecond)
+    csv_date1 = parse(csv_event1["Date & Time"]).replace(tzinfo=timezone.utc) + timedelta(
+        microseconds=parse(csv_event1["Time of Day"]).microsecond)
     assert pml_date1 == csv_date1
