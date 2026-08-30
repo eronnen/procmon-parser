@@ -3,7 +3,7 @@ name = "procmon-parser"
 version = "0.3.13"
 description = "Parser to Procmon configuration and log files formats"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
     { name = "Ely Ronnen", email = "elyronnen@gmail.com" },
@@ -14,7 +14,6 @@ dependencies = [
 classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
