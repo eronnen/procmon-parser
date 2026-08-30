@@ -751,7 +751,8 @@ ClassEventDetailsHandler = {
     EventClass.Registry: get_registry_event_details,
     EventClass.File_System: get_filesystem_event_details,
     EventClass.Profiling: get_profiling_event_details,
-    EventClass.Network: get_network_event_details
+    EventClass.Network: get_network_event_details,
+    EventClass.Ipc: get_filesystem_event_details,
 }
 
 
