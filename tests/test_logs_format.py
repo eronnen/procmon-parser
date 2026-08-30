@@ -114,7 +114,11 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
     return False
 
 
-def check_pml_equals_csv(csv_reader, pml_reader):
+def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
+    """Compares the events of a PML reader against the events of a CSV export of the same log.
+
+    :param is_utc: True if the CSV time strings are in UTC, False if they are in the local timezone.
+    """
     first_event_date = None
     i = 0
     for i, (csv_record, pml_record) in enumerate(zip_longest(csv_reader, pml_reader)):
@@ -122,7 +126,7 @@ def check_pml_equals_csv(csv_reader, pml_reader):
         assert pml_record is not None, f"CSV reader has read more events then the PML reader after {i} records."
 
         first_event_date = first_event_date if first_event_date else pml_record.date_filetime
-        pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date)
+        pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date, is_utc)
 
         if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>" \
                 and is_operation_not_unknown(pml_compatible_record["Operation"]):

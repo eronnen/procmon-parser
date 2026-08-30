@@ -146,11 +146,13 @@ class Event:
         return date if is_utc else date.astimezone()
 
     @staticmethod
-    def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False):
-        # Actually Procmon prints it in local time instead of UTC
+    def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False, is_utc=True):
+        # Procmon prints the time in the timezone of the machine which exported the logs
         hundred_nanoseconds = (date_filetime % HUNDREDS_OF_NANOSECONDS)
         d = datetime.datetime.fromtimestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS,
                                             datetime.timezone.utc)
+        if not is_utc:
+            d = d.astimezone()
 
         if show_nanoseconds:
             time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(hundred_nanoseconds)
@@ -191,7 +193,7 @@ class Event:
             return self.operation.replace('_', ' ')
         return self.operation
 
-    def _get_compatible_csv_detail_column(self):
+    def _get_compatible_csv_detail_column(self, is_utc=True):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
         """
         if not self.details:
@@ -223,7 +225,7 @@ class Event:
                     del details[key]
             if "LastWriteTime" in details:
                 if self.operation == "RegSetInfoKey":
-                    details["LastWriteTime"] = self._strftime_date(details["LastWriteTime"])
+                    details["LastWriteTime"] = self._strftime_date(details["LastWriteTime"], is_utc=is_utc)
                 else:
                     del details["LastWriteTime"]
 
@@ -250,17 +252,20 @@ class Event:
 
         return ", ".join(f"{k}: {v}" for k, v in details.items())
 
-    def get_compatible_csv_info(self, first_event_date_filetime=None):
+    def get_compatible_csv_info(self, first_event_date_filetime=None, is_utc=True):
         """Returns data for every Procmon column in compatible format to the exported csv by procmon
+
+        :param first_event_date_filetime: the date of the first event in the log, for the relative time column.
+        :param is_utc: True if the time strings should be in UTC, False if they should be in the local timezone.
         """
         first_event_date_filetime = first_event_date_filetime if first_event_date_filetime else self.date_filetime
         record = {
-            Column.DATE_AND_TIME: Event._strftime_date(self.date_filetime, True, False),
+            Column.DATE_AND_TIME: Event._strftime_date(self.date_filetime, True, False, is_utc),
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
             Column.OPERATION: self._get_compatible_csv_operation_name(),
             Column.RESULT: get_error_message(self.result),
-            Column.DETAIL: self._get_compatible_csv_detail_column(),
+            Column.DETAIL: self._get_compatible_csv_detail_column(is_utc),
             Column.SEQUENCE: 'n/a',  # They do it too
             Column.COMPANY: self.process.company,
             Column.DESCRIPTION: self.process.description,
@@ -273,7 +278,7 @@ class Event:
             Column.RELATIVE_TIME: Event._strftime_relative_time(self.date_filetime - first_event_date_filetime),
             Column.DURATION:
                 Event._strftime_duration(self.duration) if get_error_message(self.result) != "" else "",
-            Column.TIME_OF_DAY: Event._strftime_date(self.date_filetime, False, True),
+            Column.TIME_OF_DAY: Event._strftime_date(self.date_filetime, False, True, is_utc),
             Column.VERSION: self.process.version,
             Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
             Column.AUTHENTICATION_ID:
@@ -284,7 +289,7 @@ class Event:
             Column.PARENT_PID: str(self.process.parent_pid),
             Column.ARCHITECTURE: "64-bit" if self.process.is_process_64bit else "32-bit",
             Column.COMPLETION_TIME:
-                Event._strftime_date(self.date_filetime + self.duration, False, True)
+                Event._strftime_date(self.date_filetime + self.duration, False, True, is_utc)
                 if get_error_message(self.result) != "" else "",
         }
 
