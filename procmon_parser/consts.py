@@ -91,6 +91,7 @@ class EventClass(enum.IntEnum):
     File_System = 3
     Profiling = 4
     Network = 5
+    Ipc = 6
 
 
 class ProcessOperation(enum.IntEnum):
@@ -202,7 +203,8 @@ EventClassOperation = {
     EventClass.Registry: RegistryOperation,
     EventClass.File_System: FilesystemOperation,
     EventClass.Profiling: ProfilingOperation,
-    EventClass.Network: NetworkOperation
+    EventClass.Network: NetworkOperation,
+    EventClass.Ipc: FilesystemOperation
 }
 
 
