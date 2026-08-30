@@ -88,8 +88,12 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
     if column_name == "Detail":
         if csv_record["Event Class"] == "Registry":
             if "Data: " in csv_record["Detail"] and "Type: REG_" in csv_record["Detail"]:
-                pml_data = re.search("Data: (.*)", pml_record["Detail"]).group(1)
-                csv_data = re.search("Data: (.*)", csv_record["Detail"]).group(1)
+                pml_data_match = re.search("Data: (.*)", pml_record["Detail"])
+                csv_data_match = re.search("Data: (.*)", csv_record["Detail"])
+                if pml_data_match is None or csv_data_match is None:
+                    return False
+                pml_data = pml_data_match.group(1)
+                csv_data = csv_data_match.group(1)
                 pml_detail = pml_record["Detail"][:pml_record["Detail"].index(pml_data)]
                 csv_detail = csv_record["Detail"][:csv_record["Detail"].index(csv_data)]
                 if pml_detail != csv_detail:
