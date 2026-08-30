@@ -15,6 +15,12 @@ EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
 HUNDREDS_OF_NANOSECONDS = 10000000
 
 
+def _utc_from_timestamp(timestamp):
+    """Naive UTC datetime of ``timestamp``
+    """
+    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).replace(tzinfo=None)
+
+
 class PMLError(RuntimeError):
     pass
 
@@ -137,7 +143,7 @@ class Event(object):
 
     def date(self, is_utc=True):
         if self.date_filetime is not None:
-            from_timestamp = datetime.datetime.utcfromtimestamp if is_utc else datetime.datetime.fromtimestamp
+            from_timestamp = _utc_from_timestamp if is_utc else datetime.datetime.fromtimestamp
             return from_timestamp(
                 (self.date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS) + datetime.timedelta(
                 microseconds=((self.date_filetime % HUNDREDS_OF_NANOSECONDS) // 10))
@@ -148,7 +154,7 @@ class Event(object):
     def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False):
         # Actually Procmon prints it in local time instead of UTC
         hundred_nanoseconds = (date_filetime % HUNDREDS_OF_NANOSECONDS)
-        d = datetime.datetime.utcfromtimestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS)
+        d = _utc_from_timestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS)
 
         if show_nanoseconds:
             time_of_day = d.strftime("%I:%M:%S.{:07d} %p").lstrip('0').format(hundred_nanoseconds)
