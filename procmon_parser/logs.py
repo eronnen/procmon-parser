@@ -18,7 +18,7 @@ from procmon_parser.consts import (
     get_error_message,
 )
 
-__all__ = ['Event', 'EventOperation', 'Module', 'PMLError', 'PMLStructReader', 'Process']
+__all__ = ['Event', 'Module', 'PMLError', 'PMLStructReader', 'Process']
 
 
 EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
@@ -27,49 +27,6 @@ HUNDREDS_OF_NANOSECONDS = 10000000
 
 class PMLError(RuntimeError):
     pass
-
-
-class EventOperation(str):
-    """The operation of an event.
-
-    An ``EventOperation`` is the name of the operation (it is a ``str``, so it can be compared to and
-    used as a plain name), and it also keeps the typed operation it was parsed from, so that the name
-    Procmon prints in its CSV export can be built without manipulating the name.
-
-    :param operation: the most specific operation which is known, a sub operation if there is one.
-    :param protocol: the network protocol of the operation, which Procmon prints before the name.
-    :param unknown_sub_operation: the raw value of the sub operation, if it isn't a known one.
-    """
-
-    type: Operation
-    protocol: str
-    unknown_sub_operation: int | None
-
-    def __new__(cls, operation: Operation, protocol: str = "", unknown_sub_operation: int | None = None):
-        name = f"{protocol} {operation.name}" if protocol else operation.name
-        event_operation = super().__new__(cls, name)
-        event_operation.type = operation
-        event_operation.protocol = protocol
-        event_operation.unknown_sub_operation = unknown_sub_operation
-        return event_operation
-
-    def __repr__(self):
-        return f"EventOperation({self.type!r}, protocol=\"{self.protocol}\", " \
-               f"unknown_sub_operation={self.unknown_sub_operation})"
-
-    @property
-    def is_unknown(self) -> bool:
-        """True if the event has a sub operation which is not known to the parser
-        """
-        return self.unknown_sub_operation is not None
-
-    @property
-    def csv_name(self) -> str:
-        """The operation name as Procmon prints it in the Operation column of its CSV export
-        """
-        if self.is_unknown:
-            return UNKNOWN_CSV_NAME
-        return f"{self.protocol} {self.type.csv_name}" if self.protocol else self.type.csv_name
 
 
 class Module:
@@ -153,12 +110,15 @@ class Process:
 
 class Event:
     def __init__(self, process: Process, tid: int, event_class: EventClass | str | int,
-                 operation: EventOperation | Operation, duration: int, date_filetime: int, result: int = 0,
-                 stacktrace: list | None = None, category: str = "", path: str = "", details: dict | None = None):
+                 operation: Operation, duration: int, date_filetime: int, result: int = 0,
+                 stacktrace: list | None = None, category: str = "", path: str = "", details: dict | None = None,
+                 network_protocol: str = "", unknown_sub_operation: int | None = None):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, str) else EventClass(event_class)
-        self.operation = operation if isinstance(operation, EventOperation) else EventOperation(operation)
+        self.operation = operation
+        self.network_protocol = network_protocol  # Procmon prints it before the name of a network operation
+        self.unknown_sub_operation = unknown_sub_operation  # the raw sub operation, if it isn't a known one
         self.date_filetime = date_filetime
         self.result = result
         self.duration = duration
@@ -176,11 +136,11 @@ class Event:
         return not self.__eq__(other)
 
     def __str__(self):
-        return f"Process Name={self.process.process_name}, Pid={self.process.pid}, Operation={self.operation}, " \
+        return f"Process Name={self.process.process_name}, Pid={self.process.pid}, Operation={self.operation.name}, " \
                f"Path=\"{self.path}\", Time={self._strftime_date(self.date_filetime, True, True)}"
 
     def __repr__(self):
-        return f"Event({self.process}, {self.tid}, \"{self.event_class.name}\", \"{self.operation}\", " \
+        return f"Event({self.process}, {self.tid}, \"{self.event_class.name}\", \"{self.operation.name}\", " \
                f"{self.duration}, {self.date_filetime}, {self.result}, \"{self.category}\", \"{self.path}\", " \
                f"{self.details})"
 
@@ -237,13 +197,22 @@ class Event:
             return str(True)
         return "n/a"
 
+    def _get_compatible_csv_operation_name(self):
+        """Returns the operation name as Procmon prints it in the Operation column of the exported csv.
+        """
+        if self.unknown_sub_operation is not None:
+            return UNKNOWN_CSV_NAME
+        if self.network_protocol:
+            return f"{self.network_protocol} {self.operation.csv_name}"
+        return self.operation.csv_name
+
     def _get_compatible_csv_detail_column(self, is_utc=True):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
         """
         if not self.details:
             return ""
         details = self.details.copy()
-        operation = self.operation.type
+        operation = self.operation
         if operation is ProcessOperation.Load_Image:
             details["Image Base"] = "0x{:x}".format(details["Image Base"])
             details["Image Size"] = "0x{:x}".format(details["Image Size"])
@@ -319,7 +288,7 @@ class Event:
             Column.DATE_AND_TIME: Event._strftime_date(self.date_filetime, True, False, is_utc),
             Column.PROCESS_NAME: self.process.process_name,
             Column.PID: str(self.process.pid),
-            Column.OPERATION: self.operation.csv_name,
+            Column.OPERATION: self._get_compatible_csv_operation_name(),
             Column.RESULT: get_error_message(self.result),
             Column.DETAIL: self._get_compatible_csv_detail_column(is_utc),
             Column.SEQUENCE: 'n/a',  # They do it too

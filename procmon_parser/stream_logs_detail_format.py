@@ -35,7 +35,6 @@ from procmon_parser.consts import (
     get_ioctl_name,
     get_registry_access_mask_string,
 )
-from procmon_parser.logs import EventOperation
 from procmon_parser.stream_helper import (
     read_duration,
     read_filetime,
@@ -102,8 +101,7 @@ def get_network_event_details(io, metadata, event, extra_detail_io):
     is_dest_ipv4 = flags & 2 != 0
     is_tcp = flags & 4 != 0
 
-    protocol = "TCP" if is_tcp else "UDP"
-    event.operation = EventOperation(event.operation.type, protocol=protocol)
+    event.network_protocol = "TCP" if is_tcp else "UDP"
 
     io.seek(2, 1)  # Unknown field
     event.details['Length'] = read_u32(io)
@@ -166,9 +164,9 @@ def get_registry_delete_key_or_value_extra_details(metadata, event, extra_detail
 
 def get_registry_load_or_rename_extra_details(metadata, event, extra_detail_io, details_info):
     new_path = read_detail_string(extra_detail_io, details_info["new_path_info"])
-    if event.operation.type is RegistryOperation.RegLoadKey:
+    if event.operation is RegistryOperation.RegLoadKey:
         event.details["Hive Path"] = new_path
-    elif event.operation.type is RegistryOperation.RegRenameKey:
+    elif event.operation is RegistryOperation.RegRenameKey:
         event.category = "Write"
         event.details["New Name"] = new_path
 
@@ -177,9 +175,9 @@ def get_registry_query_or_enum_key_extra_details(metadata, event, extra_detail_i
     event.category = "Read"  # RegQueryKey and RegEnumKey is always Read
     key_information_class = RegistryKeyInformationClass(details_info["information_class"])
 
-    if event.operation.type is RegistryOperation.RegEnumKey:
+    if event.operation is RegistryOperation.RegEnumKey:
         event.details["Index"] = details_info["index"]  # Only in enum
-    elif event.operation.type is RegistryOperation.RegQueryKey:
+    elif event.operation is RegistryOperation.RegQueryKey:
         event.details["Query"] = key_information_class.name # Only in query
 
     if not extra_detail_io:
@@ -236,7 +234,7 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
     event.category = "Read"  # RegQueryValue and RegEnumValue are always Read
     key_value_information_class = RegistryKeyValueInformationClass(details_info["information_class"])
 
-    if event.operation.type is RegistryOperation.RegEnumValue:
+    if event.operation is RegistryOperation.RegEnumValue:
         event.details["Index"] = details_info["index"]  # Only in enum
 
     if not extra_detail_io:
@@ -337,7 +335,7 @@ RegistryExtraDetailsHandler: dict[Operation, Callable] = {
 def get_registry_event_details(io, metadata, event, extra_detail_io):
     path_info = read_detail_string_info(io)
     details_info = {}  # information that is needed by the extra details structure
-    operation = event.operation.type
+    operation = event.operation
 
     if operation in [RegistryOperation.RegLoadKey, RegistryOperation.RegRenameKey]:
         details_info["new_path_info"] = read_detail_string_info(io)
@@ -549,7 +547,7 @@ def get_filesystem_create_file_mapping(io, metadata, event, details_io, extra_de
 
 
 def get_filesystem_read_write_file_details(io, metadata, event, details_io, extra_detail_io):
-    event.category = "Read" if event.operation.type is FilesystemOperation.ReadFile else "Write"
+    event.category = "Read" if event.operation is FilesystemOperation.ReadFile else "Write"
     details_io.seek(0x4, 1)
     io_flags_and_priority = read_u32(details_io)
     io_flags = io_flags_and_priority & 0xe000ff
@@ -611,7 +609,7 @@ def get_filesystem_ioctl_details(io, metadata, event, details_io, extra_detail_i
                                       "FSCTL_QUERY_USN_JOURNAL"]:
         event.category = "Read Metadata"
 
-    if event.operation.type is FilesystemOperation.FileSystemControl:
+    if event.operation is FilesystemOperation.FileSystemControl:
         if event.details["Control"] == "FSCTL_PIPE_INTERNAL_WRITE":
             event.details["Length"] = write_length
         elif event.details["Control"] == "FSCTL_OFFLOAD_READ":
@@ -660,19 +658,20 @@ def get_filesystem_event_details(io, metadata, event, extra_detail_io):
     io.seek(0x3, 1)  # padding
 
     # use the more specific sub operation if there is one
-    sub_operations = FilesystemSubOperations.get(event.operation.type)
+    sub_operations = FilesystemSubOperations.get(event.operation)
     if sub_operation != 0 and sub_operations is not None:
         try:
-            event.operation = EventOperation(sub_operations(sub_operation))
+            event.operation = sub_operations(sub_operation)
         except ValueError:
-            event.operation = EventOperation(event.operation.type, unknown_sub_operation=sub_operation)
+            event.unknown_sub_operation = sub_operation
 
     details_io = BytesIO(io.read(metadata.sizeof_pvoid * 5 + 0x14))
     path_info = read_detail_string_info(io)
     io.seek(2, 1)  # Padding
     event.path = read_detail_string(io, path_info)
-    operation = event.operation.type
-    if metadata.should_get_details and not event.operation.is_unknown and operation in FilesystemSubOperationHandler:
+    operation = event.operation
+    if metadata.should_get_details and event.unknown_sub_operation is None \
+            and operation in FilesystemSubOperationHandler:
         FilesystemSubOperationHandler[operation](io, metadata, event, details_io, extra_detail_io)
 
 
@@ -750,7 +749,7 @@ ProcessSpecificOperationHandler: dict[Operation, Callable] = {
 
 
 def get_process_event_details(io, metadata, event, extra_detail_io):
-    operation = event.operation.type
+    operation = event.operation
     if operation in ProcessSpecificOperationHandler:
         ProcessSpecificOperationHandler[operation](io, metadata, event, extra_detail_io)
 

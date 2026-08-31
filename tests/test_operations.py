@@ -3,6 +3,8 @@ import pytest
 
 from procmon_parser.consts import (
     UNKNOWN_CSV_NAME,
+    Column,
+    ColumnToOriginalName,
     EventClass,
     FilesystemOperation,
     FilesystemSetInformationOperation,
@@ -11,21 +13,32 @@ from procmon_parser.consts import (
     ProfilingOperation,
     RegistryOperation,
 )
-from procmon_parser.logs import EventOperation
+from procmon_parser.logs import Event, Process
 
 
-@pytest.mark.parametrize("operation, csv_name", [
-    (ProcessOperation.Load_Image, "Load Image"),
-    (ProfilingOperation.Thread_Profiling, "Thread Profiling"),
-    (RegistryOperation.RegQueryValue, "RegQueryValue"),
-    (NetworkOperation.Send, "Send"),
-    (FilesystemOperation.IRP_MJ_CLOSE, "IRP_MJ_CLOSE"),
-    (FilesystemOperation.FASTIO_MDL_READ_COMPLETE, "FASTIO_MDL_READ_COMPLETE"),
-    (FilesystemSetInformationOperation.SetDispositionInformationFile, "SetDispositionInformationFile"),
+def build_event(event_class, operation, **kwargs):
+    process = Process(pid=4, parent_pid=0)
+    return Event(process=process, tid=8, event_class=event_class, operation=operation, duration=0, date_filetime=0,
+                 **kwargs)
+
+
+def csv_operation_name(event):
+    return event.get_compatible_csv_info()[ColumnToOriginalName[Column.OPERATION]]
+
+
+@pytest.mark.parametrize("event_class, operation, csv_name", [
+    (EventClass.Process, ProcessOperation.Load_Image, "Load Image"),
+    (EventClass.Profiling, ProfilingOperation.Thread_Profiling, "Thread Profiling"),
+    (EventClass.Registry, RegistryOperation.RegQueryValue, "RegQueryValue"),
+    (EventClass.Network, NetworkOperation.Send, "Send"),
+    (EventClass.File_System, FilesystemOperation.IRP_MJ_CLOSE, "IRP_MJ_CLOSE"),
+    (EventClass.File_System, FilesystemOperation.FASTIO_MDL_READ_COMPLETE, "FASTIO_MDL_READ_COMPLETE"),
+    (EventClass.File_System, FilesystemSetInformationOperation.SetDispositionInformationFile,
+     "SetDispositionInformationFile"),
 ])
-def test_operation_csv_name(operation, csv_name):
+def test_operation_csv_name(event_class, operation, csv_name):
     assert operation.csv_name == csv_name
-    assert EventOperation(operation).csv_name == csv_name
+    assert csv_operation_name(build_event(event_class, operation)) == csv_name
 
 
 def test_event_class_csv_name():
@@ -34,23 +47,14 @@ def test_event_class_csv_name():
 
 
 def test_network_operation_csv_name_has_protocol():
-    operation = EventOperation(NetworkOperation.Send, protocol="TCP")
-    assert operation.csv_name == "TCP Send"
-    assert operation == "TCP Send"
+    event = build_event(EventClass.Network, NetworkOperation.Send, network_protocol="TCP")
+    assert csv_operation_name(event) == "TCP Send"
 
 
 def test_unknown_sub_operation_csv_name():
-    operation = EventOperation(FilesystemOperation.SetInformationFile, unknown_sub_operation=0xff)
-    assert operation.is_unknown
-    assert operation.csv_name == UNKNOWN_CSV_NAME
-    assert operation.type is FilesystemOperation.SetInformationFile
-
-
-def test_event_operation_keeps_the_typed_operation():
-    operation = EventOperation(ProcessOperation.Load_Image)
-    assert operation.type is ProcessOperation.Load_Image
-    assert operation == "Load_Image"
-    assert not operation.is_unknown
+    event = build_event(EventClass.File_System, FilesystemOperation.SetInformationFile, unknown_sub_operation=0xff)
+    assert event.operation is FilesystemOperation.SetInformationFile
+    assert csv_operation_name(event) == UNKNOWN_CSV_NAME
 
 
 def test_operations_of_different_classes_are_not_equal():
