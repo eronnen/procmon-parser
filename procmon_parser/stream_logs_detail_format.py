@@ -19,6 +19,7 @@ from procmon_parser.consts import (
     Operation,
     PageProtection,
     ProcessOperation,
+    ProfilingOperation,
     RegistryDisposition,
     RegistryKeyInformationClass,
     RegistryKeySetInformationClass,
@@ -92,7 +93,13 @@ def read_detail_string(io, string_info):
 
 
 def get_profiling_event_details(io, metadata, event, extra_detail_io):
-    pass
+    if event.operation is ProfilingOperation.Process_Profiling:
+        event.details["User Time"] = read_u64(io)
+        event.details["Kernel Time"] = read_u64(io)
+        working_set = read_u64(io)
+        private_bytes = read_u64(io)
+        event.details["Private Bytes"] = private_bytes
+        event.details["Working Set"] = working_set
 
 
 def get_network_event_details(io, metadata, event, extra_detail_io):

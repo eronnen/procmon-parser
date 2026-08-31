@@ -177,7 +177,7 @@ def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
                 if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
                                                                              column_name, pml_value, csv_value, i):
                     print(f"In Event {pml_record!r}")
-                    raise AssertionError(f"Event {i + 1}, Column {column_name}: PMl=\"{pml_value}\", CSV=\"{csv_value}\"")
+                    raise AssertionError(f"Event {i + 1}, Column {column_name}: PML=\"{pml_value}\", CSV=\"{csv_value}\"")
 
 
 def test_pml_equals_csv_32bit(csv_reader_windows7_32bit, pml_reader_windows7_32bit):

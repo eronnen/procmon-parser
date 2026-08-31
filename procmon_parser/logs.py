@@ -14,6 +14,7 @@ from procmon_parser.consts import (
     EventClass,
     Operation,
     ProcessOperation,
+    ProfilingOperation,
     RegistryOperation,
     get_error_message,
 )
@@ -219,7 +220,11 @@ class Event:
         elif operation is ProcessOperation.Thread_Exit:
             details["User Time"] = Event._strftime_duration(details["User Time"])
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
-        elif operation in [ProcessOperation.Process_Exit, ProcessOperation.Process_Statistics]:
+        elif operation in [
+            ProcessOperation.Process_Exit,
+            ProcessOperation.Process_Statistics,
+            ProfilingOperation.Process_Profiling,
+        ]:
             if "Exit Status" in details and details["Exit Status"] >= 0x80000000:
                 details["Exit Status"] = details["Exit Status"] - 0x100000000
             if "User Time" in details:
