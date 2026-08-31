@@ -3,7 +3,7 @@
 #pragma description "Sysinternals Process Monitor Log (PML) File Pattern"
 #pragma file_format "pml"
 #pragma MIME "application/x-procmon-log"
-#pragma array_limit 1000000
+#pragma array_limit 2000000
 #pragma pattern_limit 20971520
 
 #include <std/sys.pat>
@@ -891,5 +891,5 @@ IconTable icon_table @ header.icon_table_offset;
 HostsAndPortsTable hosts_and_ports @ header.hosts_and_ports_tables_offset;
 
 // Preview the first events block (capped to prevent evaluation performance degradation on huge 50k+ logs)
-u32 preview_event_count = header.number_of_events < 200 ? header.number_of_events : 200;
+u32 preview_event_count = header.number_of_events < 5000 ? header.number_of_events : 5000;
 Event events_preview[preview_event_count] @ header.events_offset;
