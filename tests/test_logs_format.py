@@ -13,6 +13,7 @@ from procmon_parser.consts import (
     ProfilingOperation,
     RegistryOperation,
 )
+from tests.mismatch_report import print_mismatch
 
 SUPPORTED_COLUMNS = [
     Column.TIME_OF_DAY,
@@ -139,9 +140,8 @@ def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
             pml_value = pml_compatible_record[column_name]
             csv_value = csv_record[column_name]
             if pml_value != csv_value:
-                raise AssertionError(
-                    f"Event {i + 1}, Column {column_name}: PMl=\"{pml_value}\", CSV=\"{csv_value}\".\n"
-                    f" PML Event: {pml_record!r}\nCSV Event: {csv_record}")
+                print_mismatch(i + 1, column_name, pml_record, pml_compatible_record, csv_record, pml_value, csv_value)
+                raise AssertionError(f"Event {i + 1}, Column {column_name} mismatch, see the printed diff above")
 
         for column in PARTIAL_SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]
@@ -176,8 +176,9 @@ def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
                         csv_value = ", ".join(csv_detail)
                 if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
                                                                              column_name, pml_value, csv_value, i):
-                    print(f"In Event {pml_record!r}")
-                    raise AssertionError(f"Event {i + 1}, Column {column_name}: PML=\"{pml_value}\", CSV=\"{csv_value}\"")
+                    print_mismatch(i + 1, column_name, pml_record, pml_compatible_record, csv_record, pml_value,
+                                   csv_value)
+                    raise AssertionError(f"Event {i + 1}, Column {column_name} mismatch, see the printed diff above")
 
 
 def test_pml_equals_csv_32bit(csv_reader_windows7_32bit, pml_reader_windows7_32bit):
