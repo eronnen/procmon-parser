@@ -189,6 +189,8 @@ class Event:
     def _get_compatible_csv_operation_name(self):
         if "<Unknown>" in self.operation:
             return "<Unknown>"
+        if self.event_class in [EventClass.Process, EventClass.Profiling]:
+            return self.operation.replace('_', ' ')
         return self.operation
 
     def _get_compatible_csv_detail_column(self, is_utc=True):

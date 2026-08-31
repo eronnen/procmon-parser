@@ -84,32 +84,7 @@ ColumnToOriginalName = {
 }
 
 
-class ProcmonEnumMeta(enum.EnumMeta):
-    """Metaclass for Procmon enums allowing lookup by both original identifier and space-separated name."""
-
-    def __getitem__(cls, name):
-        if isinstance(name, str):
-            name = name.replace(" ", "_")
-        return super().__getitem__(name)
-
-
-class Operation(enum.IntEnum, metaclass=ProcmonEnumMeta):
-    """Base class for Procmon operations where member names use spaces instead of underscores."""
-
-    @property
-    def name(self) -> str:
-        return self._name_.replace("_", " ")
-
-    @classmethod
-    def _missing_(cls, value):
-        if isinstance(value, str):
-            normalized = value.replace(" ", "_")
-            if normalized in cls._member_map_:
-                return cls._member_map_[normalized]
-        return super()._missing_(value)
-
-
-class EventClass(enum.IntEnum, metaclass=ProcmonEnumMeta):
+class EventClass(enum.IntEnum):
     Unknown = 0
     Process = 1
     Registry = 2
@@ -131,7 +106,7 @@ class EventClass(enum.IntEnum, metaclass=ProcmonEnumMeta):
         return super()._missing_(value)
 
 
-class ProcessOperation(Operation):
+class ProcessOperation(enum.IntEnum):
     Process_Defined = 0
     Process_Create = 1
     Process_Exit = 2
@@ -144,7 +119,7 @@ class ProcessOperation(Operation):
     System_Statistics = 9
 
 
-class RegistryOperation(Operation):
+class RegistryOperation(enum.IntEnum):
     RegOpenKey = 0
     RegCreateKey = 1
     RegCloseKey = 2
@@ -165,7 +140,7 @@ class RegistryOperation(Operation):
     RegQueryKeySecurity = 17
 
 
-class NetworkOperation(Operation):
+class NetworkOperation(enum.IntEnum):
     Unknown = 0
     Other = 1
     Send = 2
@@ -178,13 +153,13 @@ class NetworkOperation(Operation):
     TCPCopy = 9
 
 
-class ProfilingOperation(Operation):
+class ProfilingOperation(enum.IntEnum):
     Thread_Profiling = 0
     Process_Profiling = 1
     Debug_Output_Profiling = 2
 
 
-class FilesystemOperation(enum.IntEnum, metaclass=ProcmonEnumMeta):
+class FilesystemOperation(enum.IntEnum):
     VolumeDismount = 0  # IRP_MJ_VOLUME_DISMOUNT
     VolumeMount = 1  # IRP_MJ_VOLUME_MOUNT
     FASTIO_MDL_WRITE_COMPLETE = 2  # FASTIO_MDL_WRITE_COMPLETE
