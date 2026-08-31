@@ -84,7 +84,15 @@ ColumnToOriginalName = {
 }
 
 
-class EventClass(enum.IntEnum):
+class ProcmonIntEnum(enum.IntEnum):
+    """Base IntEnum with a csv_name property returning the CSV-compatible name."""
+
+    @property
+    def csv_name(self) -> str:
+        return self.name.replace("_", " ")
+
+
+class EventClass(ProcmonIntEnum):
     Unknown = 0
     Process = 1
     Registry = 2
@@ -93,20 +101,8 @@ class EventClass(enum.IntEnum):
     Network = 5
     Ipc = 6
 
-    @property
-    def name(self) -> str:
-        return self._name_.replace("_", " ")
 
-    @classmethod
-    def _missing_(cls, value):
-        if isinstance(value, str):
-            normalized = value.replace(" ", "_")
-            if normalized in cls._member_map_:
-                return cls._member_map_[normalized]
-        return super()._missing_(value)
-
-
-class ProcessOperation(enum.IntEnum):
+class ProcessOperation(ProcmonIntEnum):
     Process_Defined = 0
     Process_Create = 1
     Process_Exit = 2
@@ -119,7 +115,7 @@ class ProcessOperation(enum.IntEnum):
     System_Statistics = 9
 
 
-class RegistryOperation(enum.IntEnum):
+class RegistryOperation(ProcmonIntEnum):
     RegOpenKey = 0
     RegCreateKey = 1
     RegCloseKey = 2
@@ -140,7 +136,7 @@ class RegistryOperation(enum.IntEnum):
     RegQueryKeySecurity = 17
 
 
-class NetworkOperation(enum.IntEnum):
+class NetworkOperation(ProcmonIntEnum):
     Unknown = 0
     Other = 1
     Send = 2
@@ -153,7 +149,7 @@ class NetworkOperation(enum.IntEnum):
     TCPCopy = 9
 
 
-class ProfilingOperation(enum.IntEnum):
+class ProfilingOperation(ProcmonIntEnum):
     Thread_Profiling = 0
     Process_Profiling = 1
     Debug_Output_Profiling = 2

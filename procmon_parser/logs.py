@@ -291,7 +291,7 @@ class Event:
                 Event._strftime_duration(self.duration) if get_error_message(self.result) != "" else "",
             Column.TIME_OF_DAY: Event._strftime_date(self.date_filetime, False, True, is_utc),
             Column.VERSION: self.process.version,
-            Column.EVENT_CLASS: self.event_class.name,
+            Column.EVENT_CLASS: self.event_class.csv_name,
             Column.AUTHENTICATION_ID:
                 f"{self.process.authentication_id >> 32:08x}:{self.process.authentication_id & 0xFFFFFFFF:08x}",
             Column.VIRTUALIZED: Event._get_bool_str(self.process.virtualized),

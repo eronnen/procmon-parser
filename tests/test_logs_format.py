@@ -57,10 +57,10 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "DeviceIoControl",
         "InternalDeviceIoControl",
         "Shutdown",
-        "SetDispositionInformationFile"
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] + \
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation] + \
-        [op.name for op in ProfilingOperation],
+        "SetDispositionInformationFile",
+    ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
+        [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
+        [op.csv_name for op in ProfilingOperation],
 
     Column.CATEGORY: [
         "CloseFile",
@@ -76,9 +76,9 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "InternalDeviceIoControl",
         "Shutdown",
         "SetDispositionInformationFile",
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] + \
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation] + \
-        [op.name for op in ProfilingOperation]
+    ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
+        [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
+        [op.csv_name for op in ProfilingOperation],
 }
 
 
