@@ -37,6 +37,7 @@ dev = [
     "ty",
     "pre-commit>=4.3.0",
     "poethepoet",
+    "rich>=15.0.0",
 ]
 
 # Run with `uv run poe <task> --pml-path <path> --csv-path <path>`
