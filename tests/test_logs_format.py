@@ -104,6 +104,9 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
                     return True
                 elif csv_data in pml_data and csv_data[:16] == pml_data[:16]:
                     return True
+            elif csv_record["Operation"] == "RegEnumKey":
+                # Sometimes they miss some of the details
+                return csv_value in pml_value
         elif csv_record["Event Class"] == "File System":
             if csv_record["Operation"] == "QueryDirectory" and csv_value in pml_value:
                 return True  # they don't write long directories sometimes
@@ -111,6 +114,9 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
                     and "PageProtection" in csv_value:
                 # Procmon has a bug where they probably read the wrong struct field for PageProtection
                 return pml_value[:pml_value.find("PageProtection")] == csv_value[:csv_value.find("PageProtection")]
+        elif csv_record["Event Class"] == "Network" and csv_record["Operation"] == "TCP Connect":
+            # Sometimes they miss some of the details
+            return csv_value in pml_value
     return False
 
 

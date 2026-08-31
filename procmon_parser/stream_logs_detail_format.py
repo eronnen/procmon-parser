@@ -401,7 +401,7 @@ def get_filesystem_query_directory_details(io, metadata, event, details_io, extr
         next_entry_offset = -1  # hack so the first iteration won't exit
         current_entry_offset = 1
 
-        i = 0 if directory_name else -1
+        i = 1 if directory_name else 0
         while True:
             i += 1
             if next_entry_offset == 0 or (current_entry_offset + next_entry_offset) > extra_detail_length:
