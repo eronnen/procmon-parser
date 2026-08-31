@@ -15,11 +15,13 @@ from procmon_parser.consts import (
 )
 from procmon_parser.logs import Event, Process
 
+SOME_FILETIME = 132000000000000000  # 2019-04-17, Windows can't convert a filetime before the epoch to a timestamp
+
 
 def build_event(event_class, operation, **kwargs):
     process = Process(pid=4, parent_pid=0)
-    return Event(process=process, tid=8, event_class=event_class, operation=operation, duration=0, date_filetime=0,
-                 **kwargs)
+    return Event(process=process, tid=8, event_class=event_class, operation=operation, duration=0,
+                 date_filetime=SOME_FILETIME, **kwargs)
 
 
 def csv_operation_name(event):
