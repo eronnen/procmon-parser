@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from collections import namedtuple
 from io import BytesIO
 from struct import error, unpack
+from typing import Callable
 
 from procmon_parser.consts import (
     EventClass,
@@ -13,6 +16,7 @@ from procmon_parser.consts import (
     FilesystemQueryInformationOperation,
     FilesystemSetInformationOperation,
     FilesystemSubOperations,
+    Operation,
     PageProtection,
     ProcessOperation,
     RegistryDisposition,
@@ -31,6 +35,7 @@ from procmon_parser.consts import (
     get_ioctl_name,
     get_registry_access_mask_string,
 )
+from procmon_parser.logs import EventOperation
 from procmon_parser.stream_helper import (
     read_duration,
     read_filetime,
@@ -98,7 +103,7 @@ def get_network_event_details(io, metadata, event, extra_detail_io):
     is_tcp = flags & 4 != 0
 
     protocol = "TCP" if is_tcp else "UDP"
-    event.operation = protocol + " " + event.operation
+    event.operation = EventOperation(event.operation.type, protocol=protocol)
 
     io.seek(2, 1)  # Unknown field
     event.details['Length'] = read_u32(io)
@@ -161,9 +166,9 @@ def get_registry_delete_key_or_value_extra_details(metadata, event, extra_detail
 
 def get_registry_load_or_rename_extra_details(metadata, event, extra_detail_io, details_info):
     new_path = read_detail_string(extra_detail_io, details_info["new_path_info"])
-    if event.operation == RegistryOperation.RegLoadKey.name:
+    if event.operation.type is RegistryOperation.RegLoadKey:
         event.details["Hive Path"] = new_path
-    elif event.operation == RegistryOperation.RegRenameKey.name:
+    elif event.operation.type is RegistryOperation.RegRenameKey:
         event.category = "Write"
         event.details["New Name"] = new_path
 
@@ -172,9 +177,9 @@ def get_registry_query_or_enum_key_extra_details(metadata, event, extra_detail_i
     event.category = "Read"  # RegQueryKey and RegEnumKey is always Read
     key_information_class = RegistryKeyInformationClass(details_info["information_class"])
 
-    if event.operation == RegistryOperation.RegEnumKey.name:
+    if event.operation.type is RegistryOperation.RegEnumKey:
         event.details["Index"] = details_info["index"]  # Only in enum
-    elif event.operation == RegistryOperation.RegQueryKey.name:
+    elif event.operation.type is RegistryOperation.RegQueryKey:
         event.details["Query"] = key_information_class.name # Only in query
 
     if not extra_detail_io:
@@ -231,7 +236,7 @@ def get_registry_query_or_enum_value_extra_details(metadata, event, extra_detail
     event.category = "Read"  # RegQueryValue and RegEnumValue are always Read
     key_value_information_class = RegistryKeyValueInformationClass(details_info["information_class"])
 
-    if event.operation == RegistryOperation.RegEnumValue.name:
+    if event.operation.type is RegistryOperation.RegEnumValue:
         event.details["Index"] = details_info["index"]  # Only in enum
 
     if not extra_detail_io:
@@ -310,52 +315,53 @@ def get_registry_set_value_extra_details(metadata, event, extra_detail_io, detai
         event.details["Data"] = read_registry_data(extra_detail_io, event.details["Type"], length)
 
 
-RegistryExtraDetailsHandler = {
-    RegistryOperation.RegOpenKey.name: get_registry_open_or_create_key_extra_details,
-    RegistryOperation.RegCreateKey.name: get_registry_open_or_create_key_extra_details,
-    RegistryOperation.RegQueryKey.name: get_registry_query_or_enum_key_extra_details,
-    RegistryOperation.RegSetValue.name: get_registry_set_value_extra_details,
-    RegistryOperation.RegQueryValue.name: get_registry_query_or_enum_value_extra_details,
-    RegistryOperation.RegEnumValue.name: get_registry_query_or_enum_value_extra_details,
-    RegistryOperation.RegEnumKey.name: get_registry_query_or_enum_key_extra_details,
-    RegistryOperation.RegSetInfoKey.name: get_registry_set_info_key_extra_details,
-    RegistryOperation.RegDeleteKey.name: get_registry_delete_key_or_value_extra_details,
-    RegistryOperation.RegDeleteValue.name: get_registry_delete_key_or_value_extra_details,
-    RegistryOperation.RegLoadKey.name: get_registry_load_or_rename_extra_details,
-    RegistryOperation.RegRenameKey.name: get_registry_load_or_rename_extra_details,
-    RegistryOperation.RegQueryMultipleValueKey.name: get_registry_query_multiple_value_extra_details,
-    RegistryOperation.RegSetKeySecurity.name: get_registry_set_key_security_extra_details,
-    RegistryOperation.RegQueryKeySecurity.name: get_registry_query_key_security_extra_details,
+RegistryExtraDetailsHandler: dict[Operation, Callable] = {
+    RegistryOperation.RegOpenKey: get_registry_open_or_create_key_extra_details,
+    RegistryOperation.RegCreateKey: get_registry_open_or_create_key_extra_details,
+    RegistryOperation.RegQueryKey: get_registry_query_or_enum_key_extra_details,
+    RegistryOperation.RegSetValue: get_registry_set_value_extra_details,
+    RegistryOperation.RegQueryValue: get_registry_query_or_enum_value_extra_details,
+    RegistryOperation.RegEnumValue: get_registry_query_or_enum_value_extra_details,
+    RegistryOperation.RegEnumKey: get_registry_query_or_enum_key_extra_details,
+    RegistryOperation.RegSetInfoKey: get_registry_set_info_key_extra_details,
+    RegistryOperation.RegDeleteKey: get_registry_delete_key_or_value_extra_details,
+    RegistryOperation.RegDeleteValue: get_registry_delete_key_or_value_extra_details,
+    RegistryOperation.RegLoadKey: get_registry_load_or_rename_extra_details,
+    RegistryOperation.RegRenameKey: get_registry_load_or_rename_extra_details,
+    RegistryOperation.RegQueryMultipleValueKey: get_registry_query_multiple_value_extra_details,
+    RegistryOperation.RegSetKeySecurity: get_registry_set_key_security_extra_details,
+    RegistryOperation.RegQueryKeySecurity: get_registry_query_key_security_extra_details,
 }
 
 
 def get_registry_event_details(io, metadata, event, extra_detail_io):
     path_info = read_detail_string_info(io)
     details_info = {}  # information that is needed by the extra details structure
+    operation = event.operation.type
 
-    if event.operation in [RegistryOperation.RegLoadKey.name, RegistryOperation.RegRenameKey.name]:
+    if operation in [RegistryOperation.RegLoadKey, RegistryOperation.RegRenameKey]:
         details_info["new_path_info"] = read_detail_string_info(io)
         extra_detail_io = io  # the new path is a part of the details structure
-    elif event.operation in [RegistryOperation.RegOpenKey.name, RegistryOperation.RegCreateKey.name]:
+    elif operation in [RegistryOperation.RegOpenKey, RegistryOperation.RegCreateKey]:
         io.seek(2, 1)  # Unknown field
         details_info["desired_access"] = read_u32(io)
-    elif event.operation in [RegistryOperation.RegQueryKey.name, RegistryOperation.RegQueryValue.name]:
+    elif operation in [RegistryOperation.RegQueryKey, RegistryOperation.RegQueryValue]:
         io.seek(2, 1)  # Unknown field
         details_info["length"] = read_u32(io)
         details_info["information_class"] = read_u32(io)
-    elif event.operation in [RegistryOperation.RegEnumValue.name, RegistryOperation.RegEnumKey.name]:
+    elif operation in [RegistryOperation.RegEnumValue, RegistryOperation.RegEnumKey]:
         io.seek(2, 1)  # Unknown field
         details_info["length"] = read_u32(io)
         details_info["index"] = read_u32(io)
         details_info["information_class"] = read_u32(io)
-    elif event.operation == RegistryOperation.RegSetInfoKey.name:
+    elif operation is RegistryOperation.RegSetInfoKey:
         io.seek(2, 1)  # Unknown field
         details_info["key_set_information_class"] = read_u32(io)
         io.seek(4, 1)  # Unknown field
         details_info["length"] = read_u16(io)
         io.seek(2, 1)  # Unknown field
         extra_detail_io = io  # For RegSetInfoKey the data is in the details structure
-    elif event.operation == RegistryOperation.RegSetValue.name:
+    elif operation is RegistryOperation.RegSetValue:
         io.seek(2, 1)  # Unknown field
         details_info["reg_type"] = read_u32(io)
         details_info["length"] = read_u32(io)
@@ -365,8 +371,8 @@ def get_registry_event_details(io, metadata, event, extra_detail_io):
     event.path = read_detail_string(io, path_info)
 
     # Get the extra details structure
-    if metadata.should_get_details and event.operation in RegistryExtraDetailsHandler:
-        RegistryExtraDetailsHandler[event.operation](metadata, event, extra_detail_io, details_info)
+    if metadata.should_get_details and operation in RegistryExtraDetailsHandler:
+        RegistryExtraDetailsHandler[operation](metadata, event, extra_detail_io, details_info)
 
 
 def get_filesystem_read_metadata_details(io, metadata, event, details_io, extra_detail_io):
@@ -543,7 +549,7 @@ def get_filesystem_create_file_mapping(io, metadata, event, details_io, extra_de
 
 
 def get_filesystem_read_write_file_details(io, metadata, event, details_io, extra_detail_io):
-    event.category = "Read" if event.operation == "ReadFile" else "Write"
+    event.category = "Read" if event.operation.type is FilesystemOperation.ReadFile else "Write"
     details_io.seek(0x4, 1)
     io_flags_and_priority = read_u32(details_io)
     io_flags = io_flags_and_priority & 0xe000ff
@@ -605,7 +611,7 @@ def get_filesystem_ioctl_details(io, metadata, event, details_io, extra_detail_i
                                       "FSCTL_QUERY_USN_JOURNAL"]:
         event.category = "Read Metadata"
 
-    if event.operation == "FileSystemControl":
+    if event.operation.type is FilesystemOperation.FileSystemControl:
         if event.details["Control"] == "FSCTL_PIPE_INTERNAL_WRITE":
             event.details["Length"] = write_length
         elif event.details["Control"] == "FSCTL_OFFLOAD_READ":
@@ -633,19 +639,19 @@ def get_filesystem_setdispositioninformation_details(io, metadata, event, detail
         event.details["Delete"] = "False"
 
 
-FilesystemSubOperationHandler = {
-    FilesystemOperation.CreateFile.name: get_filesystem_create_file_details,
-    FilesystemOperation.ReadFile.name: get_filesystem_read_write_file_details,
-    FilesystemOperation.WriteFile.name: get_filesystem_read_write_file_details,
-    FilesystemOperation.FileSystemControl.name: get_filesystem_ioctl_details,
-    FilesysemDirectoryControlOperation.QueryDirectory.name: get_filesystem_query_directory_details,
-    FilesysemDirectoryControlOperation.NotifyChangeDirectory.name: get_filesystem_notify_change_directory_details,
-    FilesystemOperation.DeviceIoControl.name: get_filesystem_ioctl_details,
-    FilesystemQueryInformationOperation.QueryIdInformation.name: get_filesystem_read_metadata_details,
-    FilesystemQueryInformationOperation.QueryRemoteProtocolInformation.name: get_filesystem_read_metadata_details,
-    FilesystemSetInformationOperation.SetDispositionInformationFile.name:
+FilesystemSubOperationHandler: dict[Operation, Callable] = {
+    FilesystemOperation.CreateFile: get_filesystem_create_file_details,
+    FilesystemOperation.ReadFile: get_filesystem_read_write_file_details,
+    FilesystemOperation.WriteFile: get_filesystem_read_write_file_details,
+    FilesystemOperation.FileSystemControl: get_filesystem_ioctl_details,
+    FilesysemDirectoryControlOperation.QueryDirectory: get_filesystem_query_directory_details,
+    FilesysemDirectoryControlOperation.NotifyChangeDirectory: get_filesystem_notify_change_directory_details,
+    FilesystemOperation.DeviceIoControl: get_filesystem_ioctl_details,
+    FilesystemQueryInformationOperation.QueryIdInformation: get_filesystem_read_metadata_details,
+    FilesystemQueryInformationOperation.QueryRemoteProtocolInformation: get_filesystem_read_metadata_details,
+    FilesystemSetInformationOperation.SetDispositionInformationFile:
         get_filesystem_setdispositioninformation_details,
-    FilesystemOperation.CreateFileMapping.name: get_filesystem_create_file_mapping,
+    FilesystemOperation.CreateFileMapping: get_filesystem_create_file_mapping,
 }
 
 
@@ -653,19 +659,21 @@ def get_filesystem_event_details(io, metadata, event, extra_detail_io):
     sub_operation = read_u8(io)
     io.seek(0x3, 1)  # padding
 
-    # fix operation name if there is more specific sub operation
-    if sub_operation != 0 and FilesystemOperation[event.operation] in FilesystemSubOperations:
+    # use the more specific sub operation if there is one
+    sub_operations = FilesystemSubOperations.get(event.operation.type)
+    if sub_operation != 0 and sub_operations is not None:
         try:
-            event.operation = FilesystemSubOperations[FilesystemOperation[event.operation]](sub_operation).name
+            event.operation = EventOperation(sub_operations(sub_operation))
         except ValueError:
-            event.operation += " <Unknown>"
+            event.operation = EventOperation(event.operation.type, unknown_sub_operation=sub_operation)
 
     details_io = BytesIO(io.read(metadata.sizeof_pvoid * 5 + 0x14))
     path_info = read_detail_string_info(io)
     io.seek(2, 1)  # Padding
     event.path = read_detail_string(io, path_info)
-    if metadata.should_get_details and event.operation in FilesystemSubOperationHandler:
-        FilesystemSubOperationHandler[event.operation](io, metadata, event, details_io, extra_detail_io)
+    operation = event.operation.type
+    if metadata.should_get_details and not event.operation.is_unknown and operation in FilesystemSubOperationHandler:
+        FilesystemSubOperationHandler[operation](io, metadata, event, details_io, extra_detail_io)
 
 
 def get_process_created_details(io, metadata, event, extra_detail_io):
@@ -729,21 +737,22 @@ def get_thread_exit_details(io, metadata, event, extra_detail_io):
     event.details["Kernel Time"] = kernel_time
 
 
-ProcessSpecificOperationHandler = {
-    ProcessOperation.Process_Defined.name: get_process_created_details,
-    ProcessOperation.Process_Create.name: get_process_created_details,
-    ProcessOperation.Process_Exit.name: get_process_exit_details,
-    ProcessOperation.Thread_Create.name: get_thread_create_details,
-    ProcessOperation.Thread_Exit.name: get_thread_exit_details,
-    ProcessOperation.Load_Image.name: get_load_image_details,
-    ProcessOperation.Process_Start.name: get_process_started_details,
-    ProcessOperation.Process_Statistics.name: get_process_exit_details,
+ProcessSpecificOperationHandler: dict[Operation, Callable] = {
+    ProcessOperation.Process_Defined: get_process_created_details,
+    ProcessOperation.Process_Create: get_process_created_details,
+    ProcessOperation.Process_Exit: get_process_exit_details,
+    ProcessOperation.Thread_Create: get_thread_create_details,
+    ProcessOperation.Thread_Exit: get_thread_exit_details,
+    ProcessOperation.Load_Image: get_load_image_details,
+    ProcessOperation.Process_Start: get_process_started_details,
+    ProcessOperation.Process_Statistics: get_process_exit_details,
 }
 
 
 def get_process_event_details(io, metadata, event, extra_detail_io):
-    if event.operation in ProcessSpecificOperationHandler:
-        ProcessSpecificOperationHandler[event.operation](io, metadata, event, extra_detail_io)
+    operation = event.operation.type
+    if operation in ProcessSpecificOperationHandler:
+        ProcessSpecificOperationHandler[operation](io, metadata, event, extra_detail_io)
 
 
 ClassEventDetailsHandler = {
