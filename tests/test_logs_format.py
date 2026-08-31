@@ -81,15 +81,6 @@ PARTIAL_SUPPORTED_COLUMNS = {
         [op.csv_name for op in ProfilingOperation],
 }
 
-
-def is_operation_not_unknown(operation):
-    # These operations were added in 3.60 and are not recognized by 3.53
-    return operation in ["SetStorageReservedIdInformation", "QuerySatLxInformation",
-                         "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
-                         "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
-                         "QueryCaseSensitiveInformationForceAccessCheck"]
-
-
 def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, csv_value, i):
     if pml_record["Operation"] != csv_record["Operation"]:
         return False
@@ -142,10 +133,6 @@ def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
 
         first_event_date = first_event_date if first_event_date else pml_record.date_filetime
         pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date, is_utc)
-
-        if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>" \
-                and is_operation_not_unknown(pml_compatible_record["Operation"]):
-            continue
 
         for column in SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]
