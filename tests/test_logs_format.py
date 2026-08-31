@@ -5,7 +5,14 @@ from itertools import zip_longest
 
 from dateutil.parser import parse
 
-from procmon_parser.consts import Column, ColumnToOriginalName, NetworkOperation, ProcessOperation, RegistryOperation
+from procmon_parser.consts import (
+    Column,
+    ColumnToOriginalName,
+    NetworkOperation,
+    ProcessOperation,
+    ProfilingOperation,
+    RegistryOperation,
+)
 
 SUPPORTED_COLUMNS = [
     Column.TIME_OF_DAY,
@@ -51,8 +58,9 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "InternalDeviceIoControl",
         "Shutdown",
         "SetDispositionInformationFile"
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
+    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] + \
+        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation] + \
+        [op.name for op in ProfilingOperation],
 
     Column.CATEGORY: [
         "CloseFile",
@@ -68,8 +76,9 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "InternalDeviceIoControl",
         "Shutdown",
         "SetDispositionInformationFile",
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
+    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] + \
+        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation] + \
+        [op.name for op in ProfilingOperation]
 }
 
 

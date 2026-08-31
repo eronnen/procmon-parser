@@ -189,8 +189,6 @@ class Event:
     def _get_compatible_csv_operation_name(self):
         if "<Unknown>" in self.operation:
             return "<Unknown>"
-        if EventClass.Process == self.event_class:
-            return self.operation.replace('_', ' ')
         return self.operation
 
     def _get_compatible_csv_detail_column(self, is_utc=True):
@@ -205,8 +203,19 @@ class Event:
         elif self.operation == ProcessOperation.Thread_Exit.name:
             details["User Time"] = Event._strftime_duration(details["User Time"])
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
+        elif self.operation in [ProcessOperation.Process_Exit.name, ProcessOperation.Process_Statistics.name]:
+            if "Exit Status" in details and details["Exit Status"] >= 0x80000000:
+                details["Exit Status"] = details["Exit Status"] - 0x100000000
+            if "User Time" in details:
+                details["User Time"] = f"{Event._strftime_duration(details['User Time'])} seconds"
+            if "Kernel Time" in details:
+                details["Kernel Time"] = f"{Event._strftime_duration(details['Kernel Time'])} seconds"
+            commas_formatted_keys = ["Private Bytes", "Peak Private Bytes", "Working Set", "Peak Working Set"]
+            for key in commas_formatted_keys:
+                if key in details:
+                    details[key] = f"{details[key]:,}"
         elif self.operation == ProcessOperation.Process_Start.name:
-            details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
+            details["Environment"] = "\r;\t" + "\r;\t".join(details["Environment"])
         elif EventClass.Registry == self.event_class:
             commas_formatted_keys = ["Length", "SubKeys", "Values", "Index"]
             for key in commas_formatted_keys:
@@ -280,7 +289,7 @@ class Event:
                 Event._strftime_duration(self.duration) if get_error_message(self.result) != "" else "",
             Column.TIME_OF_DAY: Event._strftime_date(self.date_filetime, False, True, is_utc),
             Column.VERSION: self.process.version,
-            Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
+            Column.EVENT_CLASS: self.event_class.name,
             Column.AUTHENTICATION_ID:
                 f"{self.process.authentication_id >> 32:08x}:{self.process.authentication_id & 0xFFFFFFFF:08x}",
             Column.VIRTUALIZED: Event._get_bool_str(self.process.virtualized),

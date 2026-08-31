@@ -84,7 +84,32 @@ ColumnToOriginalName = {
 }
 
 
-class EventClass(enum.IntEnum):
+class ProcmonEnumMeta(enum.EnumMeta):
+    """Metaclass for Procmon enums allowing lookup by both original identifier and space-separated name."""
+
+    def __getitem__(cls, name):
+        if isinstance(name, str):
+            name = name.replace(" ", "_")
+        return super().__getitem__(name)
+
+
+class Operation(enum.IntEnum, metaclass=ProcmonEnumMeta):
+    """Base class for Procmon operations where member names use spaces instead of underscores."""
+
+    @property
+    def name(self) -> str:
+        return self._name_.replace("_", " ")
+
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            normalized = value.replace(" ", "_")
+            if normalized in cls._member_map_:
+                return cls._member_map_[normalized]
+        return super()._missing_(value)
+
+
+class EventClass(enum.IntEnum, metaclass=ProcmonEnumMeta):
     Unknown = 0
     Process = 1
     Registry = 2
@@ -93,8 +118,20 @@ class EventClass(enum.IntEnum):
     Network = 5
     Ipc = 6
 
+    @property
+    def name(self) -> str:
+        return self._name_.replace("_", " ")
 
-class ProcessOperation(enum.IntEnum):
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            normalized = value.replace(" ", "_")
+            if normalized in cls._member_map_:
+                return cls._member_map_[normalized]
+        return super()._missing_(value)
+
+
+class ProcessOperation(Operation):
     Process_Defined = 0
     Process_Create = 1
     Process_Exit = 2
@@ -107,7 +144,7 @@ class ProcessOperation(enum.IntEnum):
     System_Statistics = 9
 
 
-class RegistryOperation(enum.IntEnum):
+class RegistryOperation(Operation):
     RegOpenKey = 0
     RegCreateKey = 1
     RegCloseKey = 2
@@ -128,7 +165,7 @@ class RegistryOperation(enum.IntEnum):
     RegQueryKeySecurity = 17
 
 
-class NetworkOperation(enum.IntEnum):
+class NetworkOperation(Operation):
     Unknown = 0
     Other = 1
     Send = 2
@@ -141,13 +178,13 @@ class NetworkOperation(enum.IntEnum):
     TCPCopy = 9
 
 
-class ProfilingOperation(enum.IntEnum):
+class ProfilingOperation(Operation):
     Thread_Profiling = 0
     Process_Profiling = 1
     Debug_Output_Profiling = 2
 
 
-class FilesystemOperation(enum.IntEnum):
+class FilesystemOperation(enum.IntEnum, metaclass=ProcmonEnumMeta):
     VolumeDismount = 0  # IRP_MJ_VOLUME_DISMOUNT
     VolumeMount = 1  # IRP_MJ_VOLUME_MOUNT
     FASTIO_MDL_WRITE_COMPLETE = 2  # FASTIO_MDL_WRITE_COMPLETE
@@ -204,7 +241,7 @@ EventClassOperation = {
     EventClass.File_System: FilesystemOperation,
     EventClass.Profiling: ProfilingOperation,
     EventClass.Network: NetworkOperation,
-    EventClass.Ipc: FilesystemOperation
+    EventClass.Ipc: FilesystemOperation,
 }
 
 
