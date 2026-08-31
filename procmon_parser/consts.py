@@ -84,7 +84,57 @@ ColumnToOriginalName = {
 }
 
 
-class EventClass(enum.IntEnum):
+UNKNOWN_CSV_NAME = "<Unknown>"  # what Procmon prints for values it doesn't recognize
+
+
+class ProcmonEnum(enum.IntEnum):
+    """Base of the enums whose members Procmon displays by their name.
+
+    ``csv_name`` is the name as it appears in Procmon's CSV export.
+    """
+
+    @property
+    def csv_name(self) -> str:
+        return self.name
+
+
+class _SpacedCsvName:
+    """Mixin for Procmon names which are displayed with spaces where the member name has underscores."""
+
+    name: str
+
+    @property
+    def csv_name(self) -> str:
+        return self.name.replace("_", " ")
+
+
+class Operation(ProcmonEnum):
+    """Base of every Procmon operation enum, including the file system sub operations.
+
+    Procmon displays most operation names verbatim (``RegQueryValue``, ``IRP_MJ_CLOSE``), so only the
+    operation classes whose names are displayed with spaces derive from ``SpacedOperation``.
+
+    Operations of different event classes share values (``ProcessOperation.Process_Exit`` and
+    ``ProfilingOperation.Debug_Output_Profiling`` are both 2), so operations of different classes are
+    never equal, otherwise an operation could be mistaken for an operation of another class.
+    """
+
+    def __eq__(self, other):
+        if isinstance(other, Operation) and type(other) is not type(self):
+            return False
+        return super().__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    __hash__ = enum.IntEnum.__hash__  # values of different operation classes may collide, dicts handle that
+
+
+class SpacedOperation(_SpacedCsvName, Operation):
+    """Operations which Procmon displays with spaces instead of underscores (``Load Image``)."""
+
+
+class EventClass(_SpacedCsvName, ProcmonEnum):
     Unknown = 0
     Process = 1
     Registry = 2
@@ -94,7 +144,7 @@ class EventClass(enum.IntEnum):
     Ipc = 6
 
 
-class ProcessOperation(enum.IntEnum):
+class ProcessOperation(SpacedOperation):
     Process_Defined = 0
     Process_Create = 1
     Process_Exit = 2
@@ -107,7 +157,7 @@ class ProcessOperation(enum.IntEnum):
     System_Statistics = 9
 
 
-class RegistryOperation(enum.IntEnum):
+class RegistryOperation(Operation):
     RegOpenKey = 0
     RegCreateKey = 1
     RegCloseKey = 2
@@ -128,7 +178,7 @@ class RegistryOperation(enum.IntEnum):
     RegQueryKeySecurity = 17
 
 
-class NetworkOperation(enum.IntEnum):
+class NetworkOperation(Operation):
     Unknown = 0
     Other = 1
     Send = 2
@@ -141,13 +191,13 @@ class NetworkOperation(enum.IntEnum):
     TCPCopy = 9
 
 
-class ProfilingOperation(enum.IntEnum):
+class ProfilingOperation(SpacedOperation):
     Thread_Profiling = 0
     Process_Profiling = 1
     Debug_Output_Profiling = 2
 
 
-class FilesystemOperation(enum.IntEnum):
+class FilesystemOperation(Operation):
     VolumeDismount = 0  # IRP_MJ_VOLUME_DISMOUNT
     VolumeMount = 1  # IRP_MJ_VOLUME_MOUNT
     FASTIO_MDL_WRITE_COMPLETE = 2  # FASTIO_MDL_WRITE_COMPLETE
@@ -204,11 +254,11 @@ EventClassOperation = {
     EventClass.File_System: FilesystemOperation,
     EventClass.Profiling: ProfilingOperation,
     EventClass.Network: NetworkOperation,
-    EventClass.Ipc: FilesystemOperation
+    EventClass.Ipc: FilesystemOperation,
 }
 
 
-class FilesystemQueryVolumeInformationOperation(enum.IntEnum):
+class FilesystemQueryVolumeInformationOperation(Operation):
     QueryInformationVolume = 0x1
     QueryLabelInformationVolume = 0x2
     QuerySizeInformationVolume = 0x3
@@ -219,13 +269,13 @@ class FilesystemQueryVolumeInformationOperation(enum.IntEnum):
     QueryObjectIdInformationVolume = 0x8
 
 
-class FilesystemSetVolumeInformationOperation(enum.IntEnum):
+class FilesystemSetVolumeInformationOperation(Operation):
     SetControlInformationVolume = 0x1
     SetLabelInformationVolume = 0x2
     SetObjectIdInformationVolume = 0x8
 
 
-class FilesystemQueryInformationOperation(enum.IntEnum):
+class FilesystemQueryInformationOperation(Operation):
     QueryBasicInformationFile = 0x4
     QueryStandardInformationFile = 0x5
     QueryFileInternalInformationFile = 0x6
@@ -272,7 +322,7 @@ class FilesystemQueryInformationOperation(enum.IntEnum):
     QueryCaseSensitiveInformationForceAccessCheck = 0x4b
 
 
-class FilesystemSetInformationOperation(enum.IntEnum):
+class FilesystemSetInformationOperation(Operation):
     SetBasicInformationFile = 0x4
     SetRenameInformationFile = 0xa
     SetLinkInformationFile = 0xb
@@ -291,12 +341,12 @@ class FilesystemSetInformationOperation(enum.IntEnum):
     SetStorageReservedIdInformation = 0x4a
 
 
-class FilesysemDirectoryControlOperation(enum.IntEnum):
+class FilesysemDirectoryControlOperation(Operation):
     QueryDirectory = 0x1,
     NotifyChangeDirectory = 0x2,
 
 
-class FilesystemPnpOperation(enum.IntEnum):
+class FilesystemPnpOperation(Operation):
     StartDevice = 0x0
     QueryRemoveDevice = 0x1
     RemoveDevice = 0x2
@@ -323,7 +373,7 @@ class FilesystemPnpOperation(enum.IntEnum):
     QueryLegacyBusInformation = 0x18
 
 
-class FilesystemLockUnlockOperation(enum.IntEnum):
+class FilesystemLockUnlockOperation(Operation):
     LockFile = 0x1  # IRP_MJ_LOCK_CONTROL, FASTIO_LOCK
     UnlockFileSingle = 0x2  # IRP_MJ_LOCK_CONTROL, FASTIO_UNLOCK_SINGLE
     UnlockFileAll = 0x3  # IRP_MJ_LOCK_CONTROL, FASTIO_UNLOCK_ALL

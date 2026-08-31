@@ -6,9 +6,17 @@ from __future__ import annotations
 
 import binascii
 import datetime
-import enum
 
-from procmon_parser.consts import Column, ColumnToOriginalName, EventClass, ProcessOperation, get_error_message
+from procmon_parser.consts import (
+    UNKNOWN_CSV_NAME,
+    Column,
+    ColumnToOriginalName,
+    EventClass,
+    Operation,
+    ProcessOperation,
+    RegistryOperation,
+    get_error_message,
+)
 
 __all__ = ['Event', 'Module', 'PMLError', 'PMLStructReader', 'Process']
 
@@ -102,12 +110,15 @@ class Process:
 
 class Event:
     def __init__(self, process: Process, tid: int, event_class: EventClass | str | int,
-                 operation: str | enum.IntEnum, duration: int, date_filetime: int, result: int = 0,
-                 stacktrace: list | None = None, category: str = "", path: str = "", details: dict | None = None):
+                 operation: Operation, duration: int, date_filetime: int, result: int = 0,
+                 stacktrace: list | None = None, category: str = "", path: str = "", details: dict | None = None,
+                 network_protocol: str = "", unknown_sub_operation: int | None = None):
         self.process = process
         self.tid = tid
         self.event_class = EventClass[event_class] if isinstance(event_class, str) else EventClass(event_class)
-        self.operation = operation.name if isinstance(operation, enum.IntEnum) else operation
+        self.operation = operation
+        self.network_protocol = network_protocol  # Procmon prints it before the name of a network operation
+        self.unknown_sub_operation = unknown_sub_operation  # the raw sub operation, if it isn't a known one
         self.date_filetime = date_filetime
         self.result = result
         self.duration = duration
@@ -125,11 +136,11 @@ class Event:
         return not self.__eq__(other)
 
     def __str__(self):
-        return f"Process Name={self.process.process_name}, Pid={self.process.pid}, Operation={self.operation}, " \
+        return f"Process Name={self.process.process_name}, Pid={self.process.pid}, Operation={self.operation.name}, " \
                f"Path=\"{self.path}\", Time={self._strftime_date(self.date_filetime, True, True)}"
 
     def __repr__(self):
-        return f"Event({self.process}, {self.tid}, \"{self.event_class.name}\", \"{self.operation}\", " \
+        return f"Event({self.process}, {self.tid}, \"{self.event_class.name}\", \"{self.operation.name}\", " \
                f"{self.duration}, {self.date_filetime}, {self.result}, \"{self.category}\", \"{self.path}\", " \
                f"{self.details})"
 
@@ -187,11 +198,13 @@ class Event:
         return "n/a"
 
     def _get_compatible_csv_operation_name(self):
-        if "<Unknown>" in self.operation:
-            return "<Unknown>"
-        if EventClass.Process == self.event_class:
-            return self.operation.replace('_', ' ')
-        return self.operation
+        """Returns the operation name as Procmon prints it in the Operation column of the exported csv.
+        """
+        if self.unknown_sub_operation is not None:
+            return UNKNOWN_CSV_NAME
+        if self.network_protocol:
+            return f"{self.network_protocol} {self.operation.csv_name}"
+        return self.operation.csv_name
 
     def _get_compatible_csv_detail_column(self, is_utc=True):
         """Returns the detail column as a string which is compatible to Procmon's detail format in the exported csv.
@@ -199,14 +212,26 @@ class Event:
         if not self.details:
             return ""
         details = self.details.copy()
-        if self.operation == ProcessOperation.Load_Image.name:
+        operation = self.operation
+        if operation is ProcessOperation.Load_Image:
             details["Image Base"] = "0x{:x}".format(details["Image Base"])
             details["Image Size"] = "0x{:x}".format(details["Image Size"])
-        elif self.operation == ProcessOperation.Thread_Exit.name:
+        elif operation is ProcessOperation.Thread_Exit:
             details["User Time"] = Event._strftime_duration(details["User Time"])
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
-        elif self.operation == ProcessOperation.Process_Start.name:
-            details["Environment"] = "\n;\t" + "\n;\t".join(details["Environment"])
+        elif operation in [ProcessOperation.Process_Exit, ProcessOperation.Process_Statistics]:
+            if "Exit Status" in details and details["Exit Status"] >= 0x80000000:
+                details["Exit Status"] = details["Exit Status"] - 0x100000000
+            if "User Time" in details:
+                details["User Time"] = f"{Event._strftime_duration(details['User Time'])} seconds"
+            if "Kernel Time" in details:
+                details["Kernel Time"] = f"{Event._strftime_duration(details['Kernel Time'])} seconds"
+            commas_formatted_keys = ["Private Bytes", "Peak Private Bytes", "Working Set", "Peak Working Set"]
+            for key in commas_formatted_keys:
+                if key in details:
+                    details[key] = f"{details[key]:,}"
+        elif operation is ProcessOperation.Process_Start:
+            details["Environment"] = "\r;\t" + "\r;\t".join(details["Environment"])
         elif EventClass.Registry == self.event_class:
             commas_formatted_keys = ["Length", "SubKeys", "Values", "Index"]
             for key in commas_formatted_keys:
@@ -224,7 +249,7 @@ class Event:
                 if key in details:
                     del details[key]
             if "LastWriteTime" in details:
-                if self.operation == "RegSetInfoKey":
+                if operation is RegistryOperation.RegSetInfoKey:
                     details["LastWriteTime"] = self._strftime_date(details["LastWriteTime"], is_utc=is_utc)
                 else:
                     del details["LastWriteTime"]
@@ -240,9 +265,9 @@ class Event:
             elif "Data" in details and isinstance(details["Data"], str):
                 details["Data"] = "\n;".join(details["Data"].split('\r\n'))  # They add ; before a new line
 
-            if self.operation == "RegQueryValue" and "Name" in details:
+            if operation is RegistryOperation.RegQueryValue and "Name" in details:
                 del details["Name"]
-            elif self.operation == "RegQueryKey" and details["Query"] == "Name" and "Name" in details:
+            elif operation is RegistryOperation.RegQueryKey and details["Query"] == "Name" and "Name" in details:
                 del details["Name"]
         elif EventClass.File_System == self.event_class:
             commas_formatted_keys = ["AllocationSize", "Offset", "Length"]
@@ -280,7 +305,7 @@ class Event:
                 Event._strftime_duration(self.duration) if get_error_message(self.result) != "" else "",
             Column.TIME_OF_DAY: Event._strftime_date(self.date_filetime, False, True, is_utc),
             Column.VERSION: self.process.version,
-            Column.EVENT_CLASS: self.event_class.name.replace('_', ' '),
+            Column.EVENT_CLASS: self.event_class.csv_name,
             Column.AUTHENTICATION_ID:
                 f"{self.process.authentication_id >> 32:08x}:{self.process.authentication_id & 0xFFFFFFFF:08x}",
             Column.VIRTUALIZED: Event._get_bool_str(self.process.virtualized),

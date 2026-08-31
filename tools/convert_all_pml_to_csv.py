@@ -1,7 +1,7 @@
-"""Utility script to convert Procmon PML log files to compressed CSV files using Process Monitor (Procmon).
+"""Utility script to convert Procmon PML log files to CSV files using Process Monitor (Procmon).
 
 This script decompresses compressed PML files, runs Process Monitor to export them
-as CSV with all 27 standard columns, and compresses the resulting CSV with zlib.
+as CSV with all 27 standard columns, and optionally compresses the resulting CSV with zlib.
 """
 
 from __future__ import annotations
@@ -113,6 +113,7 @@ def convert_pml_to_csv(
     csv_output_path: Path,
     procmon_exe: Path,
     pmc_config_path: Path,
+    compress_output: bool = True,
     timeout: float = 120.0,
 ) -> None:
     """Convert a single PML file to a CSV file using Procmon."""
@@ -163,14 +164,18 @@ def convert_pml_to_csv(
         logger.debug("Exported uncompressed CSV size: %d bytes", len(raw_csv_bytes))
 
         csv_output_path.parent.mkdir(parents=True, exist_ok=True)
-        compressed_csv = zlib.compress(raw_csv_bytes, level=COMPRESSION_LEVEL)
-        logger.debug("Compressed CSV size: %d bytes (level %d)", len(compressed_csv), COMPRESSION_LEVEL)
-        csv_output_path.write_bytes(compressed_csv)
+        if compress_output:
+            compressed_csv = zlib.compress(raw_csv_bytes, level=COMPRESSION_LEVEL)
+            logger.debug("Compressed CSV size: %d bytes (level %d)", len(compressed_csv), COMPRESSION_LEVEL)
+            csv_output_path.write_bytes(compressed_csv)
 
-        # Verification roundtrip
-        verified = zlib.decompress(csv_output_path.read_bytes())
-        if verified != raw_csv_bytes:
-            raise RuntimeError(f"Integrity check failed for compressed CSV: {csv_output_path}")
+            # Verification roundtrip
+            verified = zlib.decompress(csv_output_path.read_bytes())
+            if verified != raw_csv_bytes:
+                raise RuntimeError(f"Integrity check failed for compressed CSV: {csv_output_path}")
+        else:
+            logger.debug("Writing uncompressed CSV size: %d bytes", len(raw_csv_bytes))
+            csv_output_path.write_bytes(raw_csv_bytes)
 
     logger.info("Successfully updated %s", csv_output_path.name)
 
@@ -179,9 +184,7 @@ def parse_args(args: list[str] | None = None) -> argparse.ArgumentParser:
     """Create and return argument parser for PML to CSV conversion."""
     default_resources_dir = Path(__file__).resolve().parent.parent / "tests" / "resources"
 
-    parser = argparse.ArgumentParser(
-        description="Convert Procmon PML log files to compressed CSV files using Process Monitor (Procmon)."
-    )
+    parser = argparse.ArgumentParser(description="Convert Procmon PML log files to CSV files using Process Monitor (Procmon).")
     parser.add_argument(
         "--resources-dir",
         "-d",
@@ -196,6 +199,11 @@ def parse_args(args: list[str] | None = None) -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Specific PML files to convert. If omitted, all matching PML files in --resources-dir are converted.",
+    )
+    parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Do not compress the output CSV files with zlib (save as raw CSV files with .CSV extension).",
     )
     parser.add_argument(
         "--timeout",
@@ -258,9 +266,9 @@ def main(argv: list[str] | None = None) -> int:
         failed_files: list[str] = []
         for pml_path in pml_paths:
             if pml_path.name.endswith(PML_SUFFIX):
-                csv_name = pml_path.name[: -len(PML_SUFFIX)] + CSV_SUFFIX
+                csv_name = pml_path.name[: -len(PML_SUFFIX)] + (".CSV" if args.no_compress else CSV_SUFFIX)
             else:
-                csv_name = pml_path.stem + "." + CSV_SUFFIX.lower()
+                csv_name = pml_path.stem + (".CSV" if args.no_compress else "." + CSV_SUFFIX.lower())
             csv_path = pml_path.parent / csv_name
 
             try:
@@ -269,6 +277,7 @@ def main(argv: list[str] | None = None) -> int:
                     csv_output_path=csv_path,
                     procmon_exe=procmon_exe,
                     pmc_config_path=pmc_config_path,
+                    compress_output=not args.no_compress,
                     timeout=args.timeout,
                 )
             except Exception as e:

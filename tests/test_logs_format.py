@@ -5,7 +5,14 @@ from itertools import zip_longest
 
 from dateutil.parser import parse
 
-from procmon_parser.consts import Column, ColumnToOriginalName, NetworkOperation, ProcessOperation, RegistryOperation
+from procmon_parser.consts import (
+    Column,
+    ColumnToOriginalName,
+    NetworkOperation,
+    ProcessOperation,
+    ProfilingOperation,
+    RegistryOperation,
+)
 
 SUPPORTED_COLUMNS = [
     Column.TIME_OF_DAY,
@@ -50,9 +57,10 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "DeviceIoControl",
         "InternalDeviceIoControl",
         "Shutdown",
-        "SetDispositionInformationFile"
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation],
+        "SetDispositionInformationFile",
+    ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
+        [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
+        [op.csv_name for op in ProfilingOperation],
 
     Column.CATEGORY: [
         "CloseFile",
@@ -68,18 +76,10 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "InternalDeviceIoControl",
         "Shutdown",
         "SetDispositionInformationFile",
-    ] + ["TCP " + op.name for op in NetworkOperation] + ["UDP " + op.name for op in NetworkOperation] +
-        [op.name for op in RegistryOperation] + [op.name for op in ProcessOperation]
+    ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
+        [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
+        [op.csv_name for op in ProfilingOperation],
 }
-
-
-def is_operation_not_unknown(operation):
-    # These operations were added in 3.60 and are not recognized by 3.53
-    return operation in ["SetStorageReservedIdInformation", "QuerySatLxInformation",
-                         "QueryCaseSensitiveInformation", "QueryLinkInformationEx",
-                         "QueryLinkInfomraitonBypassAccessCheck", "QueryStorageReservedIdInformation",
-                         "QueryCaseSensitiveInformationForceAccessCheck"]
-
 
 def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, csv_value, i):
     if pml_record["Operation"] != csv_record["Operation"]:
@@ -133,10 +133,6 @@ def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
 
         first_event_date = first_event_date if first_event_date else pml_record.date_filetime
         pml_compatible_record = pml_record.get_compatible_csv_info(first_event_date, is_utc)
-
-        if csv_record["Operation"] == "<Unknown>" and pml_compatible_record["Operation"] != "<Unknown>" \
-                and is_operation_not_unknown(pml_compatible_record["Operation"]):
-            continue
 
         for column in SUPPORTED_COLUMNS:
             column_name = ColumnToOriginalName[column]
