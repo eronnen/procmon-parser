@@ -59,6 +59,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "InternalDeviceIoControl",
         "Shutdown",
         "SetDispositionInformationFile",
+        "FlushBuffersFile",
+        "QueryNameInformationFile",
         "CreatePipe",
     ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
         [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
