@@ -12,6 +12,7 @@ from procmon_parser.consts import (
     Column,
     ColumnToOriginalName,
     EventClass,
+    FilesystemOperation,
     Operation,
     ProcessOperation,
     ProfilingOperation,
@@ -279,6 +280,11 @@ class Event:
             for key in commas_formatted_keys:
                 if key in details and type(details[key]) is int:
                     details[key] = f'{details[key]:,}'
+
+        if operation is FilesystemOperation.CreatePipe:
+            for key in details:
+                if type(details[key]) is int:
+                    details[key] = f"0x{details[key]:x}"
 
         return ", ".join(f"{k}: {v}" for k, v in details.items())
 
