@@ -159,8 +159,8 @@ The PML format is very complex so there are some features (unchecked in the list
         - [ ] LockUnlockFile
         - [x] CloseFile
         - [x] CreateMailSlot
-        - [ ] QuerySecurityFile
-        - [ ] SetSecurityFile
+        - [x] QuerySecurityFile
+        - [x] SetSecurityFile
         - [ ] Power
         - [ ] SystemControl
         - [ ] DeviceChange

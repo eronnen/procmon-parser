@@ -1237,3 +1237,25 @@ class PageProtection(enum.IntEnum):
     # PAGE_GUARD = 0x100  --> Not supported by CreateFileMapping, hence not used
     PAGE_NOCACHE = 0x200
     # PAGE_WRITECOMBINE = 0x400 --> seems to be not used by ProcMon, but is supported by CreateFileMapping
+
+
+SECURITY_INFORMATION = OrderedDict([
+    (0x00000001, "Owner"),
+    (0x00000002, "Group"),
+    (0x00000004, "DACL"),
+    (0x00000008, "SACL"),
+    (0x00000010, "Label"),
+    (0x00000020, "Attribute"),
+    (0x00000040, "Scope"),
+    (0x00000080, "Process Trust Label"),
+    (0x00000100, "Access Filter"),
+    (0x00010000, "Backup"),
+    (0x80000000, "DACL Protected"),
+    (0x40000000, "SACL Protected"),
+    (0x20000000, "DACL Unprotected"),
+    (0x10000000, "SACL Unprotected"),
+])
+
+
+def get_security_information_string(mask):
+    return _get_mask_string(mask, SECURITY_INFORMATION, ", ")
