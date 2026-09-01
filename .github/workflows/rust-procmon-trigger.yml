@@ -1,0 +1,34 @@
+name: procmon-trigger
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: [ "tools/procmon-trigger/**", ".github/workflows/rust-procmon-trigger.yml" ]
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "tools/procmon-trigger/**", ".github/workflows/rust-procmon-trigger.yml" ]
+
+defaults:
+  run:
+    working-directory: tools/procmon-trigger
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ x86_64-pc-windows-msvc, i686-pc-windows-msvc ]
+
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install the Rust toolchain
+      run: rustup update stable && rustup default stable && rustup component add rustfmt clippy && rustup target add ${{ matrix.target }}
+    - name: Check formatting
+      run: cargo fmt --check
+    - name: Clippy
+      run: cargo clippy --target ${{ matrix.target }} --all-targets -- -D warnings
+    - name: Build
+      run: cargo build --release --target ${{ matrix.target }}
+    - name: Test
+      run: cargo test --target ${{ matrix.target }}
