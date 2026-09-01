@@ -118,6 +118,18 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
         elif csv_record["Event Class"] == "Network" and csv_record["Operation"] == "TCP Connect":
             # Sometimes they miss some of the details
             return csv_value in pml_value
+        elif csv_record["Event Class"] == "Process" and csv_record["Operation"] == "Process Start":
+            # Sometimes they miss some of the command line when it's too long
+            return csv_value in pml_value
+
+    if (
+        column_name == "Command Line"
+        and csv_record["Event Class"] == "Profiling"
+        and csv_record["Operation"] == "Process Profiling"
+    ):
+        # Sometimes they miss some of the command line when it's too long
+        return csv_value in pml_value
+
     return False
 
 
@@ -139,7 +151,8 @@ def check_pml_equals_csv(csv_reader, pml_reader, is_utc=True):
             column_name = ColumnToOriginalName[column]
             pml_value = pml_compatible_record[column_name]
             csv_value = csv_record[column_name]
-            if pml_value != csv_value:
+            if pml_value != csv_value and not are_we_better_than_procmon(pml_compatible_record, csv_record,
+                                                                             column_name, pml_value, csv_value, i):
                 print_mismatch(i + 1, column_name, pml_record, pml_compatible_record, csv_record, pml_value, csv_value)
                 raise AssertionError(f"Event {i + 1}, Column {column_name} mismatch, see the printed diff above")
 

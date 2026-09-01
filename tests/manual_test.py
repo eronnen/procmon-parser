@@ -13,7 +13,7 @@ def manual_test_pml_equals_csv_local(pml_path, csv_path, is_utc=False):
     start = time.time()
     logfile_paths = [pml_path, *glob.glob("{}-*.{}".format(*pml_path.rsplit('.', 1)))]
     with contextlib.ExitStack() as stack:
-        csv_reader_local = DictReader(stack.enter_context(open(csv_path, encoding="utf-8-sig")))
+        csv_reader_local = DictReader(stack.enter_context(open(csv_path, encoding="utf-8-sig", newline="")))
         pml_readers = [
             ProcmonLogsReader(stack.enter_context(open(logfile_path, "rb"))) for logfile_path in logfile_paths
         ]

@@ -141,7 +141,7 @@ class EventClass(_SpacedCsvName, ProcmonEnum):
     File_System = 3
     Profiling = 4
     Network = 5
-    Ipc = 6
+    IPC = 6
 
 
 class ProcessOperation(SpacedOperation):
@@ -254,7 +254,7 @@ EventClassOperation = {
     EventClass.File_System: FilesystemOperation,
     EventClass.Profiling: ProfilingOperation,
     EventClass.Network: NetworkOperation,
-    EventClass.Ipc: FilesystemOperation,
+    EventClass.IPC: FilesystemOperation,
 }
 
 
