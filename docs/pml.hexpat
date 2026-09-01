@@ -891,5 +891,5 @@ IconTable icon_table @ header.icon_table_offset;
 HostsAndPortsTable hosts_and_ports @ header.hosts_and_ports_tables_offset;
 
 // Preview the first events block (capped to prevent evaluation performance degradation on huge 50k+ logs)
-u32 preview_event_count = header.number_of_events < 5000 ? header.number_of_events : 5000;
+u32 preview_event_count = header.number_of_events < 25000 ? header.number_of_events : 25000;
 Event events_preview[preview_event_count] @ header.events_offset;
