@@ -78,3 +78,6 @@ include = [
     "README.md",
     "LICENSE",
 ]
+
+[tool.ty.environment]
+extra-paths = ["./tools"]
