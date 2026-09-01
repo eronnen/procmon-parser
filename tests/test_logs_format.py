@@ -62,6 +62,9 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "FlushBuffersFile",
         "QueryNameInformationFile",
         "CreatePipe",
+        "CreateMailSlot",
+        "QueryEAFile",
+        "SetEAFile",
     ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
         [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
         [op.csv_name for op in ProfilingOperation],
@@ -118,7 +121,7 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
                     and "PageProtection" in csv_value:
                 # Procmon has a bug where they probably read the wrong struct field for PageProtection
                 return pml_value[:pml_value.find("PageProtection")] == csv_value[:csv_value.find("PageProtection")]
-        elif csv_record["Event Class"] == "Network" and csv_record["Operation"] == "TCP Connect":
+        elif csv_record["Event Class"] == "Network" and csv_record["Operation"] in ["TCP Accept", "TCP Connect"]:
             # Sometimes they miss some of the details
             return csv_value in pml_value
         elif csv_record["Event Class"] == "Process" and csv_record["Operation"] == "Process Start":
