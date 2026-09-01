@@ -643,6 +643,17 @@ def get_filesystem_setdispositioninformation_details(io, metadata, event, detail
     else:
         event.details["Delete"] = "False"
 
+def get_filesystem_create_pipe_details(io, metadata, event, details_io, extra_detail_io):
+    details_io.seek(4, 1)
+    event.details["Minor ID"] = 0
+    event.details["IRP Flags"] = read_u32(details_io)
+    event.details["Flags"] = read_u32(details_io)
+    event.details["Arg1"] = read_u64(details_io)
+    event.details["Arg2"] = read_u32(details_io)
+    details_io.seek(4, 1)  # Padding for 64 bit
+    event.details["Arg3"] = read_u64(details_io)
+    event.details["Arg4"] = read_u64(details_io)
+
 
 FilesystemSubOperationHandler: dict[Operation, Callable] = {
     FilesystemOperation.CreateFile: get_filesystem_create_file_details,
@@ -657,6 +668,7 @@ FilesystemSubOperationHandler: dict[Operation, Callable] = {
     FilesystemSetInformationOperation.SetDispositionInformationFile:
         get_filesystem_setdispositioninformation_details,
     FilesystemOperation.CreateFileMapping: get_filesystem_create_file_mapping,
+    FilesystemOperation.CreatePipe: get_filesystem_create_pipe_details,
 }
 
 
@@ -761,13 +773,17 @@ def get_process_event_details(io, metadata, event, extra_detail_io):
         ProcessSpecificOperationHandler[operation](io, metadata, event, extra_detail_io)
 
 
+def get_ipc_event_details(io, metadata, event, extra_detail_io):
+    get_filesystem_event_details(io, metadata, event, extra_detail_io)
+
+
 ClassEventDetailsHandler = {
     EventClass.Process: get_process_event_details,
     EventClass.Registry: get_registry_event_details,
     EventClass.File_System: get_filesystem_event_details,
     EventClass.Profiling: get_profiling_event_details,
     EventClass.Network: get_network_event_details,
-    EventClass.IPC: get_filesystem_event_details,
+    EventClass.IPC: get_ipc_event_details,
 }
 
 

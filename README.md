@@ -141,7 +141,7 @@ The PML format is very complex so there are some features (unchecked in the list
         - [ ] VolumeMount
         - [x] CreateFileMapping
         - [x] CreateFile
-        - [ ] CreatePipe
+        - [x] CreatePipe
         - [x] ReadFile
         - [x] WriteFile
         - [ ] QueryInformationFile
