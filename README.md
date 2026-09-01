@@ -148,7 +148,7 @@ The PML format is very complex so there are some features (unchecked in the list
         - [ ] SetInformationFile
         - [ ] QueryEAFile
         - [ ] SetEAFile
-        - [ ] FlushBuffersFile
+        - [x] FlushBuffersFile
         - [ ] QueryVolumeInformation
         - [ ] SetVolumeInformation
         - [x] DirectoryControl
@@ -167,6 +167,7 @@ The PML format is very complex so there are some features (unchecked in the list
         - [ ] QueryFileQuota
         - [ ] SetFileQuota
         - [ ] PlugAndPlay
+        - [x] QueryNameInformationFile
     - [ ] Profiling Operations
         - [ ] Thread Profiling
         - [x] Process Profiling

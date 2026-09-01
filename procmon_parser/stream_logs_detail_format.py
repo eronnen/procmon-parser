@@ -643,6 +643,18 @@ def get_filesystem_setdispositioninformation_details(io, metadata, event, detail
     else:
         event.details["Delete"] = "False"
 
+def get_filesystem_query_name_information_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read Metadata"
+    _file_handle = read_u64(details_io)
+    _file_information_class = FileInformationClass(read_u32(details_io))
+    file_information_buffer_size = read_u32(details_io)
+
+    file_information_buffer_name_length = read_u32(extra_detail_io)
+    # -4 because the first 4 bytes of the buffer is the length of the name, which is already read
+    file_information_buffer =  \
+        read_utf16(extra_detail_io, min(file_information_buffer_size - 4, file_information_buffer_name_length))
+    event.details["Name"] = file_information_buffer
+
 def get_filesystem_create_pipe_details(io, metadata, event, details_io, extra_detail_io):
     details_io.seek(4, 1)
     event.details["Minor ID"] = 0
@@ -668,6 +680,7 @@ FilesystemSubOperationHandler: dict[Operation, Callable] = {
     FilesystemSetInformationOperation.SetDispositionInformationFile:
         get_filesystem_setdispositioninformation_details,
     FilesystemOperation.CreateFileMapping: get_filesystem_create_file_mapping,
+    FilesystemQueryInformationOperation.QueryNameInformationFile: get_filesystem_query_name_information_details,
     FilesystemOperation.CreatePipe: get_filesystem_create_pipe_details,
 }
 
