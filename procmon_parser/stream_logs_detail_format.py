@@ -35,6 +35,7 @@ from procmon_parser.consts import (
     get_filesysyem_io_flags,
     get_ioctl_name,
     get_registry_access_mask_string,
+    get_security_information_string,
 )
 from procmon_parser.stream_helper import (
     read_duration,
@@ -679,6 +680,13 @@ def get_filesystem_create_mailslot_details(io, metadata, event, details_io, extr
     event.details["Arg4"] = read_u64(details_io)
 
 
+def get_filesystem_security_file_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read Metadata"
+    details_io.seek(0xc, 1)
+    security_information = read_u32(details_io)
+    event.details["Information"] = get_security_information_string(security_information)
+
+
 FilesystemSubOperationHandler: dict[Operation, Callable] = {
     FilesystemOperation.CreateFile: get_filesystem_create_file_details,
     FilesystemOperation.ReadFile: get_filesystem_read_write_file_details,
@@ -695,6 +703,8 @@ FilesystemSubOperationHandler: dict[Operation, Callable] = {
     FilesystemQueryInformationOperation.QueryNameInformationFile: get_filesystem_query_name_information_details,
     FilesystemOperation.CreatePipe: get_filesystem_create_pipe_details,
     FilesystemOperation.CreateMailSlot: get_filesystem_create_mailslot_details,
+    FilesystemOperation.QuerySecurityFile: get_filesystem_security_file_details,
+    FilesystemOperation.SetSecurityFile: get_filesystem_security_file_details,
 }
 
 
