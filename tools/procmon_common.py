@@ -141,7 +141,7 @@ def convert_pml_to_csv(
             cmd,
             capture_output=True,
             timeout=timeout,
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
         )
         elapsed = time.time() - start_time
         logger.debug("Procmon completed in %.2fs with exit code %d", elapsed, result.returncode)
