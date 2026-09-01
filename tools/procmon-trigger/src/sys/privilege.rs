@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result};
-use windows::core::PCWSTR;
+use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::Foundation::{GetLastError, ERROR_NOT_ALL_ASSIGNED, HANDLE, LUID};
 use windows::Win32::Security::{
     AdjustTokenPrivileges, LookupPrivilegeValueW, LUID_AND_ATTRIBUTES, SE_PRIVILEGE_ENABLED,
@@ -8,7 +8,6 @@ use windows::Win32::Security::{
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
 use crate::sys::handle::Handle;
-use crate::sys::strings::wide;
 
 /// Enables `name` in the process token, returning whether the token actually holds it.
 ///
@@ -23,11 +22,10 @@ pub fn enable(name: &str) -> Result<bool> {
         )
     }
     .context("OpenProcessToken")?;
-    let token = unsafe { Handle::from_raw(token) };
+    let token = unsafe { Handle::new(token) };
 
-    let wide_name = wide(name);
     let mut luid = LUID::default();
-    unsafe { LookupPrivilegeValueW(PCWSTR::null(), PCWSTR(wide_name.as_ptr()), &mut luid) }
+    unsafe { LookupPrivilegeValueW(PCWSTR::null(), &HSTRING::from(name), &mut luid) }
         .with_context(|| format!("LookupPrivilegeValueW({name})"))?;
 
     let privileges = TOKEN_PRIVILEGES {
@@ -40,7 +38,7 @@ pub fn enable(name: &str) -> Result<bool> {
 
     unsafe {
         AdjustTokenPrivileges(
-            token.raw(),
+            *token,
             false,
             Some(&privileges),
             std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,

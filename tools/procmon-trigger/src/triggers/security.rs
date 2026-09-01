@@ -29,7 +29,7 @@ pub fn query(ctx: &Ctx) -> Result<Outcome> {
     let mut length = 0u32;
     unsafe {
         GetKernelObjectSecurity(
-            file.raw(),
+            *file,
             (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION).0,
             Some(PSECURITY_DESCRIPTOR(descriptor.as_mut_ptr().cast())),
             descriptor.len() as u32,
@@ -62,7 +62,7 @@ pub fn set(ctx: &Ctx) -> Result<Outcome> {
     let mut length = 0u32;
     unsafe {
         GetKernelObjectSecurity(
-            file.raw(),
+            *file,
             DACL_SECURITY_INFORMATION.0,
             Some(PSECURITY_DESCRIPTOR(descriptor.as_mut_ptr().cast())),
             descriptor.len() as u32,
@@ -73,7 +73,7 @@ pub fn set(ctx: &Ctx) -> Result<Outcome> {
 
     unsafe {
         SetKernelObjectSecurity(
-            file.raw(),
+            *file,
             DACL_SECURITY_INFORMATION,
             PSECURITY_DESCRIPTOR(descriptor.as_mut_ptr().cast()),
         )

@@ -26,7 +26,7 @@ pub fn set(ctx: &Ctx) -> Result<Outcome> {
         &OpenOptions::new(FILE_WRITE_EA.0 | SYNCHRONIZE.0, OPEN_EXISTING),
     )?;
 
-    nt::set_ea_file(file.raw(), &nt::full_ea_information(ENTRIES))?;
+    nt::set_ea_file(*file, &nt::full_ea_information(ENTRIES))?;
     ctx.log("NtSetEaFile");
 
     Ok(Outcome::Ran)
@@ -45,15 +45,15 @@ pub fn query(ctx: &Ctx) -> Result<Outcome> {
             OPEN_EXISTING,
         ),
     )?;
-    nt::set_ea_file(file.raw(), &nt::full_ea_information(ENTRIES))?;
+    nt::set_ea_file(*file, &nt::full_ea_information(ENTRIES))?;
 
     let mut buffer = nt::buffer();
-    let length = nt::query_ea_file(file.raw(), &mut buffer, None)?;
+    let length = nt::query_ea_file(*file, &mut buffer, None)?;
     ctx.log(format!("NtQueryEaFile (full list): {length} bytes"));
 
     let names: Vec<&str> = ENTRIES.iter().map(|(name, _)| *name).collect();
     let ea_list = nt::get_ea_information(&names);
-    let length = nt::query_ea_file(file.raw(), &mut buffer, Some(&ea_list))?;
+    let length = nt::query_ea_file(*file, &mut buffer, Some(&ea_list))?;
     ctx.log(format!("NtQueryEaFile (by name): {length} bytes"));
 
     Ok(Outcome::Ran)

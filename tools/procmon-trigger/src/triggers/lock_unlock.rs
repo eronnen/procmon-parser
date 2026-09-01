@@ -53,13 +53,13 @@ pub fn run(ctx: &Ctx) -> Result<Outcome> {
         &OpenOptions::new(FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0, OPEN_EXISTING),
     )?;
 
-    lock(file.raw(), 0, 8)?;
+    lock(*file, 0, 8)?;
     ctx.log("LockFileEx [0, 8)");
-    unsafe { UnlockFile(file.raw(), 0, 0, 8, 0) }.context("UnlockFile")?;
+    unsafe { UnlockFile(*file, 0, 0, 8, 0) }.context("UnlockFile")?;
     ctx.log("UnlockFile [0, 8)");
 
     // Left locked on purpose: closing the handle makes the filesystem issue the unlock-all.
-    lock(file.raw(), 16, 8)?;
+    lock(*file, 16, 8)?;
     ctx.log("LockFileEx [16, 24), released by handle close");
     drop(file);
 

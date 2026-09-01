@@ -69,14 +69,14 @@ pub fn run(ctx: &Ctx) -> Result<Outcome> {
     let mut buffer = nt::buffer();
 
     for (name, class) in CLASSES {
-        let result = nt::query_information_file(file.raw(), *class, &mut buffer);
+        let result = nt::query_information_file(*file, *class, &mut buffer);
         ctx.log(format!("{name}: {}", describe(&result)));
     }
     drop(file);
 
     let directory = open_directory(ctx.directory(), FILE_GENERIC_READ.0)?;
     for (name, class) in DIRECTORY_CLASSES {
-        let result = nt::query_information_file(directory.raw(), *class, &mut buffer);
+        let result = nt::query_information_file(*directory, *class, &mut buffer);
         ctx.log(format!("{name}: {}", describe(&result)));
     }
 

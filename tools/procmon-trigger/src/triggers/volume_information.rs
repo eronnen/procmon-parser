@@ -33,7 +33,7 @@ pub fn run(ctx: &Ctx) -> Result<Outcome> {
     for (name, class) in CLASSES {
         // Classes the volume rejects (a label query on a handle without the right access, an
         // object id on a volume that has none) still produce the event the capture needs.
-        let result = nt::query_volume_information_file(file.raw(), *class, &mut buffer);
+        let result = nt::query_volume_information_file(*file, *class, &mut buffer);
         match result {
             Ok(length) => ctx.log(format!("{name}: {length} bytes")),
             Err(err) => ctx.log(format!("{name}: {err:#}")),

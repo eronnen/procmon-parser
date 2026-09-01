@@ -2,7 +2,7 @@
 //! where one maps cleanly onto an information class, since that is how real programs reach it.
 
 use anyhow::{Context as _, Result};
-use windows::core::PCWSTR;
+use windows::core::HSTRING;
 use windows::Win32::Foundation::FILETIME;
 use windows::Win32::Storage::FileSystem::{
     CreateHardLinkW, MoveFileExW, ReplaceFileW, SetEndOfFile, SetFilePointerEx, SetFileTime,
@@ -15,7 +15,6 @@ use windows::Win32::System::Pipes::{
 };
 
 use crate::sys::handle::{open, OpenOptions};
-use crate::sys::strings::wide;
 use crate::sys::{nt, privilege};
 use crate::trigger::{Ctx, Expected, Outcome};
 use crate::triggers::basic_information;
@@ -61,8 +60,7 @@ pub fn basic(ctx: &Ctx) -> Result<Outcome> {
         dwLowDateTime: 0x9db22000,
         dwHighDateTime: 0x01d4f4b0,
     };
-    unsafe { SetFileTime(file.raw(), Some(&filetime), None, Some(&filetime)) }
-        .context("SetFileTime")?;
+    unsafe { SetFileTime(*file, Some(&filetime), None, Some(&filetime)) }.context("SetFileTime")?;
     ctx.log("SetFileTime");
 
     Ok(Outcome::Ran)
@@ -76,7 +74,7 @@ pub fn position(ctx: &Ctx) -> Result<Outcome> {
     let path = ctx.create_file("position.txt", b"procmon-trigger")?;
     let file = open(&path, &OpenOptions::new(FILE_GENERIC_READ.0, OPEN_EXISTING))?;
 
-    unsafe { SetFilePointerEx(file.raw(), 8, None, FILE_BEGIN) }.context("SetFilePointerEx")?;
+    unsafe { SetFilePointerEx(*file, 8, None, FILE_BEGIN) }.context("SetFilePointerEx")?;
     ctx.log("SetFilePointerEx");
 
     Ok(Outcome::Ran)
@@ -93,9 +91,8 @@ pub fn end_of_file(ctx: &Ctx) -> Result<Outcome> {
         &OpenOptions::new(FILE_GENERIC_WRITE.0, OPEN_EXISTING),
     )?;
 
-    unsafe { SetFilePointerEx(file.raw(), 0x1000, None, FILE_BEGIN) }
-        .context("SetFilePointerEx")?;
-    unsafe { SetEndOfFile(file.raw()) }.context("SetEndOfFile")?;
+    unsafe { SetFilePointerEx(*file, 0x1000, None, FILE_BEGIN) }.context("SetFilePointerEx")?;
+    unsafe { SetEndOfFile(*file) }.context("SetEndOfFile")?;
     ctx.log("SetEndOfFile");
 
     Ok(Outcome::Ran)
@@ -114,7 +111,7 @@ pub fn allocation(ctx: &Ctx) -> Result<Outcome> {
 
     let allocation_size = 0x4000i64;
     nt::set_information_file(
-        file.raw(),
+        *file,
         FILE_ALLOCATION_INFORMATION_CLASS,
         &allocation_size.to_le_bytes(),
     )?;
@@ -131,12 +128,10 @@ pub fn rename(ctx: &Ctx) -> Result<Outcome> {
     let source = ctx.create_file("rename_source.txt", b"procmon-trigger")?;
     let target = ctx.path("rename_target.txt");
 
-    let wide_source = wide(&source);
-    let wide_target = wide(&target);
     unsafe {
         MoveFileExW(
-            PCWSTR(wide_source.as_ptr()),
-            PCWSTR(wide_target.as_ptr()),
+            &HSTRING::from(source.as_path()),
+            &HSTRING::from(target.as_path()),
             MOVEFILE_REPLACE_EXISTING,
         )
     }
@@ -162,7 +157,7 @@ pub fn rename_ex(ctx: &Ctx) -> Result<Outcome> {
         FILE_RENAME_REPLACE_IF_EXISTS | FILE_RENAME_POSIX_SEMANTICS,
         &nt_path(&target),
     );
-    nt::set_information_file(file.raw(), FILE_RENAME_INFORMATION_EX_CLASS, &information)?;
+    nt::set_information_file(*file, FILE_RENAME_INFORMATION_EX_CLASS, &information)?;
     ctx.log("FileRenameInformationEx");
 
     Ok(Outcome::Ran)
@@ -176,12 +171,10 @@ pub fn link(ctx: &Ctx) -> Result<Outcome> {
     let source = ctx.create_file("link_source.txt", b"procmon-trigger")?;
     let target = ctx.path("link_target.txt");
 
-    let wide_target = wide(&target);
-    let wide_source = wide(&source);
     unsafe {
         CreateHardLinkW(
-            PCWSTR(wide_target.as_ptr()),
-            PCWSTR(wide_source.as_ptr()),
+            &HSTRING::from(target.as_path()),
+            &HSTRING::from(source.as_path()),
             None,
         )
     }
@@ -202,10 +195,10 @@ pub fn disposition(ctx: &Ctx) -> Result<Outcome> {
         &OpenOptions::new(DELETE.0 | SYNCHRONIZE.0, OPEN_EXISTING),
     )?;
 
-    nt::set_information_file(file.raw(), FILE_DISPOSITION_INFORMATION_CLASS, &[1u8])?;
+    nt::set_information_file(*file, FILE_DISPOSITION_INFORMATION_CLASS, &[1u8])?;
     ctx.log("FileDispositionInformation: delete");
     // Clearing the disposition keeps the scratch tree intact for inspection after the run.
-    nt::set_information_file(file.raw(), FILE_DISPOSITION_INFORMATION_CLASS, &[0u8])?;
+    nt::set_information_file(*file, FILE_DISPOSITION_INFORMATION_CLASS, &[0u8])?;
     ctx.log("FileDispositionInformation: keep");
 
     Ok(Outcome::Ran)
@@ -224,13 +217,13 @@ pub fn disposition_ex(ctx: &Ctx) -> Result<Outcome> {
 
     let flags = FILE_DISPOSITION_DELETE | FILE_DISPOSITION_POSIX_SEMANTICS;
     nt::set_information_file(
-        file.raw(),
+        *file,
         FILE_DISPOSITION_INFORMATION_EX_CLASS,
         &flags.to_le_bytes(),
     )?;
     ctx.log("FileDispositionInformationEx: delete");
     nt::set_information_file(
-        file.raw(),
+        *file,
         FILE_DISPOSITION_INFORMATION_EX_CLASS,
         &0u32.to_le_bytes(),
     )?;
@@ -249,7 +242,7 @@ pub fn pipe(ctx: &Ctx) -> Result<Outcome> {
     ctx.log(format!("CreateNamedPipeW({name})"));
 
     let mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
-    unsafe { SetNamedPipeHandleState(server.raw(), Some(&mode), None, None) }
+    unsafe { SetNamedPipeHandleState(*server, Some(&mode), None, None) }
         .context("SetNamedPipeHandleState")?;
     ctx.log("SetNamedPipeHandleState");
 
@@ -260,7 +253,7 @@ pub fn pipe(ctx: &Ctx) -> Result<Outcome> {
     for value in information {
         bytes.extend_from_slice(&value.to_le_bytes());
     }
-    let result = nt::set_information_file(server.raw(), FILE_PIPE_INFORMATION_CLASS, &bytes);
+    let result = nt::set_information_file(*server, FILE_PIPE_INFORMATION_CLASS, &bytes);
     ctx.log(format!("FilePipeInformation: {result:?}"));
 
     Ok(Outcome::Ran)
@@ -278,14 +271,11 @@ pub fn replace_completion(ctx: &Ctx) -> Result<Outcome> {
     let replacement = ctx.create_file("replacement.txt", b"replacement")?;
     let backup = ctx.path("replaced.bak");
 
-    let wide_replaced = wide(&replaced);
-    let wide_replacement = wide(&replacement);
-    let wide_backup = wide(&backup);
     unsafe {
         ReplaceFileW(
-            PCWSTR(wide_replaced.as_ptr()),
-            PCWSTR(wide_replacement.as_ptr()),
-            PCWSTR(wide_backup.as_ptr()),
+            &HSTRING::from(replaced.as_path()),
+            &HSTRING::from(replacement.as_path()),
+            &HSTRING::from(backup.as_path()),
             REPLACE_FILE_FLAGS(0),
             None,
             None,
@@ -314,7 +304,7 @@ pub fn short_name(ctx: &Ctx) -> Result<Outcome> {
 
     let short_name: Vec<u16> = "TRIGGER.TMP".encode_utf16().collect();
     nt::set_information_file(
-        file.raw(),
+        *file,
         FILE_SHORT_NAME_INFORMATION_CLASS,
         &nt::name_information(&short_name),
     )?;
@@ -339,13 +329,12 @@ pub fn valid_data_length(ctx: &Ctx) -> Result<Outcome> {
         &path,
         &OpenOptions::new(FILE_GENERIC_WRITE.0 | SYNCHRONIZE.0, CREATE_ALWAYS),
     )?;
-    unsafe { SetFilePointerEx(file.raw(), 0x10000, None, FILE_BEGIN) }
-        .context("SetFilePointerEx")?;
-    unsafe { SetEndOfFile(file.raw()) }.context("SetEndOfFile")?;
+    unsafe { SetFilePointerEx(*file, 0x10000, None, FILE_BEGIN) }.context("SetFilePointerEx")?;
+    unsafe { SetEndOfFile(*file) }.context("SetEndOfFile")?;
 
     let valid_data_length = 0x8000i64;
     nt::set_information_file(
-        file.raw(),
+        *file,
         FILE_VALID_DATA_LENGTH_INFORMATION_CLASS,
         &valid_data_length.to_le_bytes(),
     )?;
@@ -367,7 +356,7 @@ pub fn attributes(ctx: &Ctx) -> Result<Outcome> {
         &OpenOptions::new(FILE_WRITE_ATTRIBUTES.0 | SYNCHRONIZE.0, OPEN_EXISTING),
     )?;
 
-    nt::set_information_file(file.raw(), FILE_BASIC_INFORMATION_CLASS, &information)?;
+    nt::set_information_file(*file, FILE_BASIC_INFORMATION_CLASS, &information)?;
     ctx.log("FileBasicInformation");
 
     Ok(Outcome::Ran)

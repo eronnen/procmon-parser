@@ -2,12 +2,11 @@
 //! mailslot's read/write path.
 
 use anyhow::{Context as _, Result};
-use windows::core::PCWSTR;
+use windows::core::HSTRING;
 use windows::Win32::Storage::FileSystem::{WriteFile, FILE_GENERIC_WRITE, OPEN_EXISTING};
 use windows::Win32::System::Mailslots::CreateMailslotW;
 
 use crate::sys::handle::{open_name, Handle, OpenOptions};
-use crate::sys::strings::wide;
 use crate::trigger::{Ctx, Expected, Outcome};
 
 /// `lReadTimeout` value that makes a read wait indefinitely.
@@ -22,11 +21,9 @@ pub fn expected() -> Vec<Expected> {
 
 pub fn run(ctx: &Ctx) -> Result<Outcome> {
     let name = format!(r"\\.\mailslot\procmon-trigger\{}", std::process::id());
-    let wide_name = wide(&name);
-    let server =
-        unsafe { CreateMailslotW(PCWSTR(wide_name.as_ptr()), 0, MAILSLOT_WAIT_FOREVER, None) }
-            .with_context(|| format!("CreateMailslotW({name})"))?;
-    let server = unsafe { Handle::from_raw(server) };
+    let server = unsafe { CreateMailslotW(&HSTRING::from(&name), 0, MAILSLOT_WAIT_FOREVER, None) }
+        .with_context(|| format!("CreateMailslotW({name})"))?;
+    let server = unsafe { Handle::new(server) };
     ctx.log(format!("CreateMailslotW({name})"));
 
     let client = open_name(
@@ -35,7 +32,7 @@ pub fn run(ctx: &Ctx) -> Result<Outcome> {
     )?;
     let message = b"procmon-trigger";
     let mut written = 0u32;
-    unsafe { WriteFile(client.raw(), Some(message), Some(&mut written), None) }
+    unsafe { WriteFile(*client, Some(message), Some(&mut written), None) }
         .context("WriteFile to the mailslot")?;
     ctx.log(format!("WriteFile: {written} bytes"));
 

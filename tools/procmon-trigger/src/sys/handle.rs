@@ -2,42 +2,20 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
+use windows::core::{Owned, HSTRING};
+use windows::Win32::Foundation::HANDLE;
 use windows::Win32::Storage::FileSystem::{
     CreateFileW, FILE_CREATION_DISPOSITION, FILE_FLAGS_AND_ATTRIBUTES, FILE_FLAG_BACKUP_SEMANTICS,
     FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE,
     OPEN_EXISTING,
 };
 
-use crate::sys::strings::wide;
-
 pub const SHARE_ALL: FILE_SHARE_MODE =
     FILE_SHARE_MODE(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0);
 
-/// Owns a kernel handle and closes it on drop, so each trigger's `IRP_MJ_CLEANUP` /
+/// A kernel handle that is closed on drop, so each trigger's `IRP_MJ_CLEANUP` /
 /// `IRP_MJ_CLOSE` events land inside its own slice of the capture.
-pub struct Handle(HANDLE);
-
-impl Handle {
-    /// # Safety
-    /// `handle` must be a valid handle that is not owned by anything else.
-    pub unsafe fn from_raw(handle: HANDLE) -> Self {
-        Self(handle)
-    }
-
-    pub fn raw(&self) -> HANDLE {
-        self.0
-    }
-}
-
-impl Drop for Handle {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = CloseHandle(self.0);
-        }
-    }
-}
+pub type Handle = Owned<HANDLE>;
 
 pub struct OpenOptions {
     pub access: u32,
@@ -66,10 +44,9 @@ impl OpenOptions {
 /// (`\\.\pipe\...`, `\\.\mailslot\...`, `\\.\C:`).
 pub fn open_name(name: impl AsRef<OsStr>, options: &OpenOptions) -> Result<Handle> {
     let name = name.as_ref();
-    let wide_name = wide(name);
     let handle = unsafe {
         CreateFileW(
-            PCWSTR(wide_name.as_ptr()),
+            &HSTRING::from(name),
             options.access,
             options.share,
             None,
@@ -79,7 +56,7 @@ pub fn open_name(name: impl AsRef<OsStr>, options: &OpenOptions) -> Result<Handl
         )
     }
     .with_context(|| format!("CreateFileW({})", name.to_string_lossy()))?;
-    Ok(unsafe { Handle::from_raw(handle) })
+    Ok(unsafe { Handle::new(handle) })
 }
 
 pub fn open(path: &Path, options: &OpenOptions) -> Result<Handle> {
