@@ -275,7 +275,7 @@ class Event:
                 del details["Name"]
             elif operation is RegistryOperation.RegQueryKey and details["Query"] == "Name" and "Name" in details:
                 del details["Name"]
-        elif EventClass.File_System == self.event_class:
+        elif self.event_class in [EventClass.File_System, EventClass.IPC]:
             commas_formatted_keys = ["AllocationSize", "Offset", "Length"]
             for key in commas_formatted_keys:
                 if key in details and type(details[key]) is int:
