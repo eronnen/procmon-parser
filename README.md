@@ -144,7 +144,7 @@ The PML format is very complex so there are some features (unchecked in the list
         - [x] CreatePipe
         - [x] ReadFile
         - [x] WriteFile
-        - [ ] QueryInformationFile
+        - [x] QueryInformationFile
         - [ ] SetInformationFile
         - [x] QueryEAFile
         - [x] SetEAFile
