@@ -146,8 +146,8 @@ The PML format is very complex so there are some features (unchecked in the list
         - [x] WriteFile
         - [ ] QueryInformationFile
         - [ ] SetInformationFile
-        - [ ] QueryEAFile
-        - [ ] SetEAFile
+        - [x] QueryEAFile
+        - [x] SetEAFile
         - [x] FlushBuffersFile
         - [ ] QueryVolumeInformation
         - [ ] SetVolumeInformation
@@ -158,7 +158,7 @@ The PML format is very complex so there are some features (unchecked in the list
         - [ ] Shutdown
         - [ ] LockUnlockFile
         - [x] CloseFile
-        - [ ] CreateMailSlot
+        - [x] CreateMailSlot
         - [ ] QuerySecurityFile
         - [ ] SetSecurityFile
         - [ ] Power

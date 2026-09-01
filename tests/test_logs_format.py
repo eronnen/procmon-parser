@@ -62,6 +62,9 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "FlushBuffersFile",
         "QueryNameInformationFile",
         "CreatePipe",
+        "CreateMailSlot",
+        "QueryEAFile",
+        "SetEAFile",
     ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
         [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
         [op.csv_name for op in ProfilingOperation],
