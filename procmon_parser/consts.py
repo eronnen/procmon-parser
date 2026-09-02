@@ -693,6 +693,9 @@ FilesystemCreateAttributes = OrderedDict([
     (0x2000, "NCI"),
     (0x4000, "E"),
     (0x10000, "V"),
+    (0x180000, " 0x180000"),  # FILE_ATTRIBUTE_PINNED | FILE_ATTRIBUTE_UNPINNED
+    (0x80000, " 0x80000"),  # FILE_ATTRIBUTE_PINNED
+    (0x100000, " 0x100000"),  # FILE_ATTRIBUTE_UNPINNED
 ])
 
 

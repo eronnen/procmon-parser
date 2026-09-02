@@ -8,6 +8,7 @@ from dateutil.parser import parse
 from procmon_parser.consts import (
     Column,
     ColumnToOriginalName,
+    FilesystemQueryInformationOperation,
     NetworkOperation,
     ProcessOperation,
     ProfilingOperation,
@@ -67,7 +68,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "SetEAFile",
         "QuerySecurityFile",
         "SetSecurityFile",
-    ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
+    ] + [op.csv_name for op in FilesystemQueryInformationOperation] + \
+        ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
         [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
         [op.csv_name for op in ProfilingOperation],
 
@@ -85,7 +87,8 @@ PARTIAL_SUPPORTED_COLUMNS = {
         "InternalDeviceIoControl",
         "Shutdown",
         "SetDispositionInformationFile",
-    ] + ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
+    ] + [op.csv_name for op in FilesystemQueryInformationOperation] + \
+        ["TCP " + op.csv_name for op in NetworkOperation] + ["UDP " + op.csv_name for op in NetworkOperation] + \
         [op.csv_name for op in RegistryOperation] + [op.csv_name for op in ProcessOperation] + \
         [op.csv_name for op in ProfilingOperation],
 }
@@ -119,6 +122,18 @@ def are_we_better_than_procmon(pml_record, csv_record, column_name, pml_value, c
         elif csv_record["Event Class"] == "File System":
             if csv_record["Operation"] == "QueryDirectory" and csv_value in pml_value:
                 return True  # they don't write long directories sometimes
+            elif csv_record["Operation"] == "QueryStreamInformationFile" and not csv_value and pml_value:
+                return True  # Procmon sometimes omits stream names that are present in the captured buffer
+            elif csv_record["Operation"] == "QueryNetworkOpenInformationFile":
+                # Procmon formats AllocationSize and EndOfFile as FILETIME values.
+                pml_allocation = pml_value.find("AllocationSize: ")
+                csv_allocation = csv_value.find("AllocationSize: ")
+                pml_attributes = pml_value.find("FileAttributes: ")
+                csv_attributes = csv_value.find("FileAttributes: ")
+                if min(pml_allocation, csv_allocation, pml_attributes, csv_attributes) == -1:
+                    return False
+                return pml_value[:pml_allocation] == csv_value[:csv_allocation] \
+                    and pml_value[pml_attributes:] == csv_value[csv_attributes:]
             elif csv_record["Operation"] == "CreateFileMapping" and "PageProtection" in pml_value \
                     and "PageProtection" in csv_value:
                 # Procmon has a bug where they probably read the wrong struct field for PageProtection

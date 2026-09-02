@@ -13,6 +13,7 @@ from procmon_parser.consts import (
     ColumnToOriginalName,
     EventClass,
     FilesystemOperation,
+    FilesystemQueryInformationOperation,
     Operation,
     ProcessOperation,
     ProfilingOperation,
@@ -276,7 +277,18 @@ class Event:
             elif operation is RegistryOperation.RegQueryKey and details["Query"] == "Name" and "Name" in details:
                 del details["Name"]
         elif self.event_class in [EventClass.File_System, EventClass.IPC]:
-            commas_formatted_keys = ["AllocationSize", "Offset", "Length"]
+            query_information_time_operations = [
+                FilesystemQueryInformationOperation.QueryBasicInformationFile,
+                FilesystemQueryInformationOperation.QueryAllInformationFile,
+                FilesystemQueryInformationOperation.QueryNetworkOpenInformationFile,
+            ]
+            if operation in query_information_time_operations:
+                time_keys = ["CreationTime", "LastAccessTime", "LastWriteTime", "ChangeTime"]
+                for key in time_keys:
+                    if key in details:
+                        details[key] = self._strftime_date(details[key], is_utc=is_utc)
+
+            commas_formatted_keys = ["AllocationSize", "EndOfFile", "Offset", "Length"]
             for key in commas_formatted_keys:
                 if key in details and type(details[key]) is int:
                     details[key] = f'{details[key]:,}'

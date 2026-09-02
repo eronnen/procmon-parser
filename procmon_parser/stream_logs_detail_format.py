@@ -385,6 +385,63 @@ def get_filesystem_read_metadata_details(io, metadata, event, details_io, extra_
     event.category = "Read Metadata"
 
 
+def get_filesystem_query_information_details(io, metadata, event, details_io, extra_detail_io):
+    event.category = "Read Metadata"
+    if extra_detail_io is None:
+        return
+
+    operation = event.operation
+    if operation in [
+        FilesystemQueryInformationOperation.QueryBasicInformationFile,
+        FilesystemQueryInformationOperation.QueryAllInformationFile,
+        FilesystemQueryInformationOperation.QueryNetworkOpenInformationFile,
+    ]:
+        event.details["CreationTime"] = read_filetime(extra_detail_io)
+        event.details["LastAccessTime"] = read_filetime(extra_detail_io)
+        event.details["LastWriteTime"] = read_filetime(extra_detail_io)
+        event.details["ChangeTime"] = read_filetime(extra_detail_io)
+
+        if operation is FilesystemQueryInformationOperation.QueryNetworkOpenInformationFile:
+            event.details["AllocationSize"] = read_u64(extra_detail_io)
+            event.details["EndOfFile"] = read_u64(extra_detail_io)
+
+        event.details["FileAttributes"] = get_filesysyem_create_attributes(read_u32(extra_detail_io))
+
+        if operation is FilesystemQueryInformationOperation.QueryAllInformationFile:
+            extra_detail_io.seek(4, 1)  # FILE_BASIC_INFORMATION padding
+            event.details["AllocationSize"] = read_u64(extra_detail_io)
+            event.details["EndOfFile"] = read_u64(extra_detail_io)
+    elif operation is FilesystemQueryInformationOperation.QueryStandardInformationFile:
+        event.details["AllocationSize"] = read_u64(extra_detail_io)
+        event.details["EndOfFile"] = read_u64(extra_detail_io)
+        event.details["NumberOfLinks"] = read_u32(extra_detail_io)
+        event.details["DeletePending"] = bool(read_u8(extra_detail_io))
+        event.details["Directory"] = bool(read_u8(extra_detail_io))
+    elif operation is FilesystemQueryInformationOperation.QueryFileInternalInformationFile:
+        event.details["IndexNumber"] = f"0x{read_u64(extra_detail_io):x}"
+    elif operation is FilesystemQueryInformationOperation.QueryEaInformationFile:
+        event.details["EaSize"] = read_u32(extra_detail_io)
+    elif operation is FilesystemQueryInformationOperation.QueryAttributeTagFile:
+        event.details["Attributes"] = get_filesysyem_create_attributes(read_u32(extra_detail_io))
+        event.details["ReparseTag"] = f"0x{read_u32(extra_detail_io):x}"
+    elif operation is FilesystemQueryInformationOperation.QueryStreamInformationFile:
+        extra_detail_length = len(extra_detail_io.getvalue())
+        entry_offset = 0
+        index = 0
+        while entry_offset + 24 <= extra_detail_length:
+            extra_detail_io.seek(entry_offset)
+            next_entry_offset = read_u32(extra_detail_io)
+            stream_name_length = read_u32(extra_detail_io)
+            extra_detail_io.seek(16, 1)  # StreamSize and StreamAllocationSize
+            if not stream_name_length or extra_detail_io.tell() + stream_name_length > extra_detail_length:
+                break
+            event.details[str(index)] = read_utf16(extra_detail_io, stream_name_length)
+            index += 1
+            if not next_entry_offset:
+                break
+            entry_offset += next_entry_offset
+
+
 def get_filesystem_query_directory_details(io, metadata, event, details_io, extra_detail_io):
     event.category = "Read Metadata"
     directory_name_info = read_detail_string_info(io)
@@ -695,8 +752,7 @@ FilesystemSubOperationHandler: dict[Operation, Callable] = {
     FilesysemDirectoryControlOperation.QueryDirectory: get_filesystem_query_directory_details,
     FilesysemDirectoryControlOperation.NotifyChangeDirectory: get_filesystem_notify_change_directory_details,
     FilesystemOperation.DeviceIoControl: get_filesystem_ioctl_details,
-    FilesystemQueryInformationOperation.QueryIdInformation: get_filesystem_read_metadata_details,
-    FilesystemQueryInformationOperation.QueryRemoteProtocolInformation: get_filesystem_read_metadata_details,
+    **dict.fromkeys(FilesystemQueryInformationOperation, get_filesystem_query_information_details),
     FilesystemSetInformationOperation.SetDispositionInformationFile:
         get_filesystem_setdispositioninformation_details,
     FilesystemOperation.CreateFileMapping: get_filesystem_create_file_mapping,
