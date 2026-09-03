@@ -168,7 +168,10 @@ Struct that contains generic procmon configuration option.
         "SourcePath": FixedUTF16CString(lambda this: this.data_size, "data"),
         "SymbolPath": FixedUTF16CString(lambda this: this.data_size, "data"),
         "FilterRules": RulesStruct,
-        "HighlightRules": RulesStruct
+        "HighlightRules": RulesStruct,
+        "FlightRecorder": Int32ul,
+        "RingBufferSize": Int32ul,
+        "RingBufferMin": Int32ul
     }, FixedBytes(lambda this: this.data_size)),
     "after_data_offset" / Tell,  # NOT IN THE REAL FORMAT - USED FOR BUILDING ONLY
 

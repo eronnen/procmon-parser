@@ -38,6 +38,10 @@ In the default configuration of Procmon, there are 20 configuration options:
 * `SymbolPath` (Wchar_t[]) - symbol server path.
 * `FilterRules` (FILTER_RULES) - a list of rules to filter events in or out.
 * `HighlightRules` (FILTER_RULES) - a list of rules for highlighting specific events.
+* `FlightRecorder` (Uint32) - setting for Procmon's flight recorder feature.
+* `RingBufferSize` (Uint32) - buffer size in MB when ring buffer mode is used.
+* `RingBufferMin` (Uint32) - minimum retention / duration for ring buffer mode.
+* `Theme` - theme preference.
 
 The filter rules are represented by the following layout:
 
