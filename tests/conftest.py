@@ -75,6 +75,7 @@ def csv_reader_windows10_64bit(csv_logs_windows10_64bit):
                         ('CompressedLogFileUTC64FilesystemCSV', 'CompressedLogFileUTC64FilesystemPML'),
                         ('CompressedLogFileUTC64ProcessCSV', 'CompressedLogFileUTC64ProcessPML'),
                         ('CompressedLogFileUTC64RegistryCSV', 'CompressedLogFileUTC64RegistryPML'),
+                        ('CompressedLogfileUTC64ProfilingCSV', 'CompressedLogfileUTC64ProfilingPML'),
                         ('CompressedLogfileTests64bitUTCWindows1125H2CSV', 'CompressedLogfileTests64bitUTCWindows1125H2PML')])
 def specific_events_logs_readers(request):
     return get_csv_log_reader(decompress_resource(request.param[0])), \
