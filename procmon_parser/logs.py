@@ -163,8 +163,8 @@ class Event:
     def _strftime_date(date_filetime, show_day=True, show_nanoseconds=False, is_utc=True):
         # Procmon prints the time in the timezone of the machine which exported the logs
         hundred_nanoseconds = (date_filetime % HUNDREDS_OF_NANOSECONDS)
-        d = datetime.datetime.fromtimestamp((date_filetime - EPOCH_AS_FILETIME) // HUNDREDS_OF_NANOSECONDS,
-                                            datetime.timezone.utc)
+        d = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc) + datetime.timedelta(
+            seconds=date_filetime // HUNDREDS_OF_NANOSECONDS)
         if not is_utc:
             d = d.astimezone()
 
