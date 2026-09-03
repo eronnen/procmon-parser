@@ -169,7 +169,7 @@ The PML format is very complex so there are some features (unchecked in the list
         - [ ] PlugAndPlay
         - [x] QueryNameInformationFile
     - [ ] Profiling Operations
-        - [ ] Thread Profiling
+        - [x] Thread Profiling
         - [x] Process Profiling
         - [ ] Debug Output Profiling
 

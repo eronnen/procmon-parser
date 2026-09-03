@@ -219,7 +219,7 @@ class Event:
         if operation is ProcessOperation.Load_Image:
             details["Image Base"] = "0x{:x}".format(details["Image Base"])
             details["Image Size"] = "0x{:x}".format(details["Image Size"])
-        elif operation is ProcessOperation.Thread_Exit:
+        elif operation in [ProcessOperation.Thread_Exit, ProfilingOperation.Thread_Profiling]:
             details["User Time"] = Event._strftime_duration(details["User Time"])
             details["Kernel Time"] = Event._strftime_duration(details["Kernel Time"])
         elif operation in [
