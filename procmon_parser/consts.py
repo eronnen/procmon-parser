@@ -82,6 +82,7 @@ ColumnToOriginalName = {
     Column.PARENT_PID: "Parent PID",
     Column.ARCHITECTURE: "Architecture",
     Column.COMPLETION_TIME: "Completion Time",
+    Column.PROCESS_START: "Process Start",
 }
 
 
