@@ -40,6 +40,7 @@ SUPPORTED_COLUMNS = [
     Column.ARCHITECTURE,
     Column.AUTHENTICATION_ID,
     Column.PARENT_PID,
+    Column.PROCESS_START,
     #  Column.CATEGORY,
     #  Column.DETAIL,
 ]

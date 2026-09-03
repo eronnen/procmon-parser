@@ -47,6 +47,7 @@ ALL_STANDARD_COLUMNS: list[Column] = [
     Column.CATEGORY,
     Column.PARENT_PID,
     Column.ARCHITECTURE,
+    Column.PROCESS_START,
 ]
 
 COMMON_PROCMON_PATHS = [

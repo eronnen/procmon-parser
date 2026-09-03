@@ -339,6 +339,8 @@ class Event:
             Column.COMPLETION_TIME:
                 Event._strftime_date(self.date_filetime + self.duration, False, True, is_utc)
                 if get_error_message(self.result) != "" else "",
+            Column.PROCESS_START:
+                Event._strftime_date(self.process.start_time or 0, True, False, is_utc)
         }
 
         compatible_record = {ColumnToOriginalName[k]: v for k, v in record.items()}
