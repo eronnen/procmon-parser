@@ -100,6 +100,9 @@ def test_parse_filter_rules_sanity(raw_config_full):
     assert config["FilterRules"][0] == Rule(Column.PROCESS_NAME, RuleRelation.IS, "python.exe", RuleAction.INCLUDE)
 
 
-def test_parse_manual_exported_config(raw_config_full_procmon_41):
+def test_parse_manual_exported_config_procmon_41(raw_config_full_procmon_41):
     config = loads_configuration(raw_config_full_procmon_41)
     assert config["ColumnCount"] == 28, "Unexpected ColumnCount"
+    assert config["FlightRecorder"] == 0, "Unexpected FlightRecorder"
+    assert config["RingBufferSize"] == 0, "Unexpected RingBufferSize"
+    assert config["RingBufferMin"] == 0, "Unexpected RingBufferMin"

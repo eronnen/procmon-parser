@@ -348,11 +348,6 @@ struct ConfigurationRecord {
         }
     }
 
-    // Ensure cursor advances to the end of the record regardless of payload structure
-    u128 expected_end = addressof(this) + record_size;
-    if ($ < expected_end) {
-        u8 padding[expected_end - $] [[comment("Remaining unparsed bytes / padding"), color("808080")]];
-    }
 } [[name(clean_string(std::string::to_string(name)))]];
 
 /* =========================================================================
