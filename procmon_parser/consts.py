@@ -51,6 +51,7 @@ class Column(enum.IntEnum):
     PARENT_PID = 40087
     ARCHITECTURE = 40088
     COMPLETION_TIME = 40164
+    PROCESS_START = 40178
 
 
 ColumnToOriginalName = {

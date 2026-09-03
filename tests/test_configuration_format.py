@@ -98,3 +98,8 @@ def test_parse_filter_rules_sanity(raw_config_full):
     assert len(config["HighlightRules"]) == 0, "HighlightRules should be an empty list"
     assert len(config["FilterRules"]) == 25, "Unexpected FilterRules length"
     assert config["FilterRules"][0] == Rule(Column.PROCESS_NAME, RuleRelation.IS, "python.exe", RuleAction.INCLUDE)
+
+
+def test_parse_manual_exported_config(raw_config_full_procmon_41):
+    config = loads_configuration(raw_config_full_procmon_41)
+    assert config["ColumnCount"] == 28, "Unexpected ColumnCount"
