@@ -1,4 +1,4 @@
-__version__ = "0.3.13"
+__version__ = "0.4.0"
 
 from procmon_parser.configuration import Column, Font, Rule, RuleAction, RuleRelation
 from procmon_parser.configuration_format import (
